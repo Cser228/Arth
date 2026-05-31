@@ -4,7 +4,7 @@
 1 2 3 4 5
 
 //write them (its deleted when write)
-. . . . .
+dump dump dump dump dump
 
 1
 //duplicate last number in stack
@@ -20,29 +20,29 @@ dup
 //= != > < >= <= its conditions
 //if remove last 2 numbers in the stack
 dup = if
-	1 .
+	1 dump
 else
-	0 .
+	0 dump
 end
 
 // you can also do inner if
 34 35 + 69 = if
 	1 if
-		1 .
+		1 dump
 	else
-		2 .
+		2 dump
 	end
 else
 	1 if
-		3 .
+		3 dump
 	else
-		4 .
+		4 dump
 	end
 end
 
 //while <if> do
 10
 while dup 0 > do
-	dup .
+	dup dump
 	1 -
 end
