@@ -8,8 +8,8 @@ Rigth now you need write code in the file name.sb, and in the end of main.asm wr
 
 **Functions**
 (number) - push this number in stack.
-+ - pop 2 numbers and push the sum of them.
-- - pop 2 numbers and push the difference of them, in the order they was written (2 1 -) = (1).
+\+ - pop 2 numbers and push the sum of them.
+\- - pop 2 numbers and push the difference of them, in the order they was written (2 1 -) = (1).
 dump - pop 1 number and print him.
 dup - pop 1 number and push this number twice.
 if/else/end - condition words.
