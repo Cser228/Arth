@@ -655,8 +655,12 @@ comment_my:
 	;while *(src+1) != \n
 	mov rax, qword [rbp-8]
 	inc rax
-	cmp qword [rax], 10
+	cmp byte [rax], 10
 	je command_finish
+
+	;if src_len == 0
+	cmp dword [rbp-12], 0
+	je exit
 
 	;src++
 	;src_len--

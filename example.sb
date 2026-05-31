@@ -1,0 +1,48 @@
+//its comments
+
+//push numbers to the stack
+1 2 3 4 5
+
+//write them (its deleted when write)
+. . . . .
+
+1
+//duplicate last number in stack
+dup
+
+//now in the stack [1, 1]
+
+//sum last 2 numbers (deleted them)
++
+
+//now in the stack [2]
+
+//= != > < >= <= its conditions
+//if remove last 2 numbers in the stack
+dup = if
+	1 .
+else
+	0 .
+end
+
+// you can also do inner if
+34 35 + = if
+	1 if
+		1 .
+	else
+		2 .
+	end
+else
+	1 if
+		3 .
+	else
+		4 .
+	end
+end
+
+//while <if> do
+10
+while dup 0 > do
+	dup .
+	1 -
+end
