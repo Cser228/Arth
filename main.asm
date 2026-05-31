@@ -222,6 +222,38 @@ minus_my:
 
 	jmp go_for_line_loop_cont
 
+equal_my:
+	;save first stack
+	mov rax, [r12]
+	add r12, 8
+
+	;save second stack
+	mov rdi, [r12]
+	add r12, 8
+
+	;if a == b
+	cmp rax, rdi
+	je equal_my_true
+
+	;put 0 in rax
+	mov rax, 0
+
+	;ret false
+	sub r12, 8
+	mov [r12], rax
+
+	jmp go_for_line_loop_cont
+
+equal_my_true:
+	;put 1 in rax
+	mov rax, 1
+
+	;ret true
+	sub r12, 8
+	mov [r12], rax
+
+	jmp go_for_line_loop_cont
+
 go_for_line_loop:
 	;its_number(src)
 	mov rax, qword [rbp-8]
@@ -243,6 +275,10 @@ go_for_line_loop:
 	;if else *src == '-'
 	cmp byte [rax], 45
 	je minus_my
+
+	;if else *src == '='
+	cmp byte [rax], 61
+	je equal_my
 
 	;next
 	jmp go_for_line_loop_cont
