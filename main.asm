@@ -2,6 +2,15 @@ format ELF64 executable
 
 segment readable executable
 
+macro strcmp_const str_val {
+    local ..str, ..end
+    jmp ..end
+    ..str db str_val
+    ..end:
+    mov rdi, ..str
+    mov rdx, ..end - ..str
+}
+
 _start:
 	;inic stack
 	push rbp
@@ -23,8 +32,12 @@ _start:
 	mov byte [rbp-13], 0
 	;char *a = src // it will point on the first character after space
 	mov qword [rbp-21], src
+	;uint16_t a = 1 // now we on line
+	mov word [rbp-23], 1
+	;if stack
+	mov qword [rbp-31], if_stack_end
 
-	;go to while (src_len != 0)
+	;go to while
 	jmp go_for_line
 
 write:
@@ -276,16 +289,222 @@ equal_my_true:
 
 	jmp command_finish
 
+;bool strcmp(char *a, char *b, uint8_t a_len, uint8_t b_len)
+;a = rax
+;b = rdi
+;a_len = rsi
+;b_len = rdx
+;ret = rax
+strcmp:
+	;inic own stack
+	push rbp
+	mov rbp, rsp
+
+	;if a_len != b_len
+	cmp rsi, rdx
+	jne strcmp_false
+
+	jmp strcmp_loop
+
+strcmp_loop:
+	;if a_len != 0 && b_len != 0
+	cmp rsi, 0
+	je strcmp_true
+
+	cmp rdx, 0
+	je strcmp_true
+
+	;if a != b
+	mov r8b, byte [rdi]
+	cmp byte [rax], r8b
+	jne strcmp_false
+
+	;a++
+	;b++
+	;a_len--
+	;b_len--
+	inc rax
+	inc rdi
+	dec rsi
+	dec rdx
+
+	jmp strcmp_loop
+
+strcmp_true:
+	;ret true
+	mov rax, 1
+	
+	mov rsp, rbp
+	pop rbp
+	ret
+
+strcmp_false:
+	;ret false
+	mov rax, 0
+
+	mov rsp, rbp
+	pop rbp
+	ret
+
+if_my:
+	;get from mlv stack last
+	mov rax, [r12]
+	add r12, 8
+
+	;if if condition true, set if stack[] = 1
+	cmp rax, 1
+	je if_my_true
+
+	;else
+	mov rax, qword [rbp-31]
+	sub rax, 8
+	mov qword [rax], 2
+	mov qword [rbp-31], rax
+
+	jmp command_finish
+
+if_my_false_set:
+	;put on if stack false
+	mov rax, qword [rbp-31]
+	sub rax, 8
+	mov qword [rax], 2
+	mov qword [rbp-31], rax
+
+	jmp command_finish
+
+if_my_false:
+	;if if stack [-1] == 2
+	mov rax, qword [rbp-31]
+	add rax, 8
+	cmp qword [rax], 2
+	je if_my_false_set
+
+	;put on if stack true
+	mov rax, qword [rbp-31]
+	sub rax, 8
+	mov qword [rax], 1
+	mov qword [rbp-31], rax
+
+	jmp command_finish
+
+if_my_true:
+	;if if stack [-1] exists
+	mov rax, qword [rbp-31]
+	add rax, 8
+	cmp rax, if_stack_end
+	jne if_my_false
+
+	;put on if stack true
+	mov rax, qword [rbp-31]
+	sub rax, 8
+	mov qword [rax], 1
+	mov qword [rbp-31], rax
+
+	jmp command_finish
+
+else_my:
+	;get from if stack last value
+	mov rdi, qword [rbp-31]
+	
+	;if if stack empty, skip
+	cmp rdi, if_stack_end
+	je command_finish
+
+	;check if we have parent if on stack
+	mov rax, rdi
+	add rax, 8
+	cmp rax, if_stack_end
+	je no_parent_skip      ;if next level is end, parent not exist
+
+	;if parent if stack == 2, skip all change logic
+	mov rax, [rdi+8]
+	cmp rax, 2
+	je command_finish      ;parent if says skip, so we do nothing
+
+	;!if stack last value
+	mov rax, qword [rbp-31]
+	cmp qword [rax], 2
+	je if_stack_set_one
+
+	mov rax, qword [rbp-31]
+	mov qword [rax], 2
+	mov qword [rbp-31], rax
+
+	jmp command_finish
+
+if_stack_set_one:
+	mov rax, qword [rbp-31]
+	mov qword [rax], 1
+	mov qword [rbp-31], rax
+
+	jmp command_finish
+
+no_parent_skip:
+	;get last value again
+	mov rax, [rdi]
+
+	;if last value was 2
+	cmp rax, 2
+	je else_my_two
+
+	;set last if stack 2
+	mov qword [rdi], 2
+	jmp command_finish
+
+else_my_two:
+	;set last if stack 1
+	mov qword [rdi], 1
+	jmp command_finish
+
+end_my:
+	;remove last if stack value
+	add qword [rbp-31], 8
+
+	jmp command_finish
+
 do_command:
 	;if word_len == 0
 	cmp byte [rbp-13], 0
+	je command_finish
+
+	;if word == "if"
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "if"
+	call strcmp
+	;if true
+	cmp rax, 1
+	je if_my
+
+	;if word == "else"
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "else"
+	call strcmp
+	;if true
+	cmp rax, 1
+	je else_my
+
+	;if word == "end"
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "end"
+	call strcmp
+	;if true
+	cmp rax, 1
+	je end_my
+
+	;if last if stack is 2, skip all
+	mov rdi, qword [rbp-31]
+	mov rax, [rdi]
+
+	cmp rax, 2
 	je command_finish
 
 	;its_number(word_now, word_len)
 	mov rax, qword [rbp-21]
 	movzx rdi, byte [rbp-13]
 	call its_number
-
 	;if true
 	cmp rax, 1
 	je push_my
@@ -309,7 +528,6 @@ do_command:
 
 	jmp command_finish
 
-
 command_finish:
 	;if src_len == 0
 	cmp dword [rbp-12], 0
@@ -329,10 +547,44 @@ command_finish:
 
 	jmp go_for_line
 
-go_for_line_loop:
-	;if its space
+new_line:
+	;if word_len != 0
+	cmp byte [rbp-13], 0
+	jne do_command
+
+	;line_counter++
+	inc word [rbp-23]
+
+	;if src_len == 0
+	cmp dword [rbp-12], 0
+	je exit
+
+	;src++
+	;src_len--
+	inc qword [rbp-8]
+	dec dword [rbp-12]
+
+	;word = src
+	;word_len = 0
 	mov rax, qword [rbp-8]
+	mov qword [rbp-21], rax
+	mov byte [rbp-13], 0
+
+	jmp go_for_line
+
+go_for_line_loop:
+	mov rax, qword [rbp-8]
+
+	;if its \n
+	cmp byte [rax], 10
+	je new_line
+
+	;if its space
 	cmp byte [rax], 32
+	je do_command
+
+	;if its \t
+	cmp byte [rax], 9
 	je do_command
 
 	;next
@@ -373,4 +625,6 @@ segment readable writable
 src file "src.sb"
 src_len = $ - src
 mlv rb 800
-mlv_end: 
+mlv_end:
+if_stack db 100 dup (0)
+if_stack_end:

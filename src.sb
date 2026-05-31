@@ -1,1 +1,15 @@
-34 35 + 2 - .
+1 if
+	0 if
+		1 if
+			69 .
+		else
+			69 .
+		end
+	else
+		0 if
+			69 .
+		else
+			67 .
+		end
+	end
+end
