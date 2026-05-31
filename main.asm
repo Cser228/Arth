@@ -651,6 +651,20 @@ do_my_while_end:
 
 	jmp command_finish
 
+comment_my:
+	;while *(src+1) != \n
+	mov rax, qword [rbp-8]
+	inc rax
+	cmp qword [rax], 10
+	je command_finish
+
+	;src++
+	;src_len--
+	inc qword [rbp-8]
+	dec dword [rbp-12]
+
+	jmp comment_my
+
 do_command:
 	;if word_len == 0
 	cmp byte [rbp-13], 0
@@ -809,6 +823,15 @@ do_command:
 	;if true
 	cmp rax, 1
 	je do_my
+
+	;if else word == "//"
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "//"
+	call strcmp
+	;if true
+	cmp rax, 1
+	je comment_my
 
 	jmp command_finish
 
