@@ -1,15 +1,5 @@
-1 if
-	0 if
-		1 if
-			69 .
-		else
-			69 .
-		end
-	else
-		0 if
-			69 .
-		else
-			67 .
-		end
-	end
+1
+while dup 10 <= do
+	dup .
+	1 +
 end
