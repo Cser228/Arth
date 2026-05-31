@@ -26,7 +26,7 @@ else
 end
 
 // you can also do inner if
-34 35 + = if
+34 35 + 69 = if
 	1 if
 		1 .
 	else
