@@ -7,8 +7,8 @@ _start:
 	push rbp
 	mov rbp, rsp
 
-	;malloc 16 byte
-	sub rsp, 16
+	;malloc 32 byte
+	sub rsp, 32
 
 	;inic stack my language
 	mov r12, mlv_end
@@ -19,6 +19,10 @@ _start:
 	mov qword [rbp-8], src
 	;uint16_t b = src_len
 	mov dword [rbp-12], src_len
+	;uint8_t word_len = 0
+	mov byte [rbp-13], 0
+	;char *a = src // it will point on the first character after space
+	mov qword [rbp-21], src
 
 	;go to while (src_len != 0)
 	jmp go_for_line
@@ -92,8 +96,9 @@ int_to_string_loop:
 		pop rbp
         ret
 
-;uint8_t its_number(char* a)
+;uint8_t its_number(char* a, uint8_t len)
 ;a = rax
+;len = rdi
 ;ret = rax
 its_number:
 	;inic own stack
@@ -103,23 +108,40 @@ its_number:
 	;save rax
 	mov r8, rax
 
+	;save rdi
+	mov r9, rdi
+
+	jmp its_number_loop
+
+its_number_loop:
+	;if len == 0
+	cmp r9, 0
+	je its_number_true
+
 	;if (*a >= '0' && *a <= '9')
 	cmp byte [r8], 48
 	jl its_number_false
 	cmp byte [r8], 57
 	jg its_number_false
 
-	;return true
-	mov rax, 1
+	;continue loop
+	inc r8
+	dec r9
 
-	;ret
-	pop rbp
-	ret
+	jmp its_number_loop
 
 its_number_false:
 	;return false
 	mov rax, 0
 
+	;ret
+	pop rbp
+	ret
+
+its_number_true:
+	;return true
+	mov rax, 1
+	
 	;ret
 	pop rbp
 	ret
@@ -160,15 +182,15 @@ string_to_int_loop_false:
 
 push_my:
 	;string_to_int
-	mov rax, qword [rbp-8]
-	mov rdi, 1
+	mov rax, qword [rbp-21]
+	movzx rdi, byte [rbp-13]
 	call string_to_int
 
 	;add to my stack
 	sub r12, 8
 	mov [r12], rax
 
-	jmp go_for_line_loop_cont
+	jmp command_finish
 
 dump_my:
 	;get from my stack
@@ -184,7 +206,7 @@ dump_my:
 
 	call write
 
-	jmp go_for_line_loop_cont
+	jmp command_finish
 
 plus_my:
 	;get first from stack
@@ -202,7 +224,7 @@ plus_my:
 	sub r12, 8
 	mov [r12], rax
 
-	jmp go_for_line_loop_cont
+	jmp command_finish
 
 minus_my:
 	;get first from stack
@@ -220,7 +242,7 @@ minus_my:
 	sub r12, 8
 	mov [r12], rdi
 
-	jmp go_for_line_loop_cont
+	jmp command_finish
 
 equal_my:
 	;save first stack
@@ -242,7 +264,7 @@ equal_my:
 	sub r12, 8
 	mov [r12], rax
 
-	jmp go_for_line_loop_cont
+	jmp command_finish
 
 equal_my_true:
 	;put 1 in rax
@@ -252,19 +274,24 @@ equal_my_true:
 	sub r12, 8
 	mov [r12], rax
 
-	jmp go_for_line_loop_cont
+	jmp command_finish
 
-go_for_line_loop:
-	;its_number(src)
-	mov rax, qword [rbp-8]
+do_command:
+	;if word_len == 0
+	cmp byte [rbp-13], 0
+	je command_finish
+
+	;its_number(word_now, word_len)
+	mov rax, qword [rbp-21]
+	movzx rdi, byte [rbp-13]
 	call its_number
 
 	;if true
 	cmp rax, 1
 	je push_my
 
-	;if else *src == '.'
-	mov rax, qword [rbp-8]
+	;if else word_now[0] == '.'
+	mov rax, qword [rbp-21]
 	cmp byte [rax], 46
 	je dump_my
 
@@ -280,19 +307,53 @@ go_for_line_loop:
 	cmp byte [rax], 61
 	je equal_my
 
+	jmp command_finish
+
+
+command_finish:
+	;if src_len == 0
+	cmp dword [rbp-12], 0
+	je exit
+
+	;src++
+	;src_len--
+	inc qword [rbp-8]
+	dec dword [rbp-12]
+
+	;word = src
+	mov rax, qword [rbp-8]
+	mov qword [rbp-21], rax
+
+	;word_len = 0
+	mov byte [rbp-13], 0
+
+	jmp go_for_line
+
+go_for_line_loop:
+	;if its space
+	mov rax, qword [rbp-8]
+	cmp byte [rax], 32
+	je do_command
+
 	;next
 	jmp go_for_line_loop_cont
 
 go_for_line_loop_cont:
-	;src++ src_len--
-	add qword [rbp-8], 1
-	sub dword [rbp-12], 1
+	;src++ src_len-- word_len++
+	inc qword [rbp-8]
+	dec dword [rbp-12]
+	inc byte [rbp-13]
+
 	jmp go_for_line
 
 go_for_line:
 	;if src_len != 0
 	cmp dword [rbp-12], 0
 	jne go_for_line_loop
+
+	;if word_len != 0
+	cmp byte [rbp-13], 0
+	jne do_command
 
 	;exit
 	jmp exit
