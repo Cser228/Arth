@@ -691,6 +691,150 @@ store_my:
 
 	jmp command_finish
 
+syscall_one:
+	;pop mlv (first and last argument)
+	mov rdi, [r12]
+	add r12, 8
+
+	syscall
+
+	jmp command_finish
+
+syscall_two:
+	;pop mlv (second arg)
+	mov rsi, [r12]
+	add r12, 8
+
+	;pop mlv (first arg)
+	mov rdi, [r12]
+	add r12, 8
+
+	syscall
+
+	jmp command_finish
+
+syscall_three:
+	;pop mlv (third arg)
+	mov rdx, [r12]
+	add r12, 8
+
+	;pop mlv (second arg)
+	mov rsi, [r12]
+	add r12, 8
+
+	;pop mlv (first arg)
+	mov rdi, [r12]
+	add r12, 8
+
+	syscall
+
+	jmp command_finish
+
+syscall_four:
+	;pop mlv (fourth arg)
+	mov r10, [r12]
+	add r12, 8
+
+	;pop mlv (third arg)
+	mov rdx, [r12]
+	add r12, 8
+
+	;pop mlv (second arg)
+	mov rsi, [r12]
+	add r12, 8
+
+	;pop mlv (first arg)
+	mov rdi, [r12]
+	add r12, 8
+
+	syscall
+
+	jmp command_finish
+
+syscall_five:
+	;pop mlv (five arg)
+	mov r9, [r12]
+	add r12, 8
+
+	;pop mlv (fourth arg)
+	mov r10, [r12]
+	add r12, 8
+
+	;pop mlv (third arg)
+	mov rdx, [r12]
+	add r12, 8
+
+	;pop mlv (second arg)
+	mov rsi, [r12]
+	add r12, 8
+
+	;pop mlv (first arg)
+	mov rdi, [r12]
+	add r12, 8
+
+	syscall
+
+	jmp command_finish
+
+syscall_my:
+	;pop mlv (syscall number)
+	mov rax, [r12]
+	add r12, 8
+
+	;pop mlv (amount of arguments)
+	mov rbx, [r12]
+	add r12, 8
+
+	;if n == 1
+	cmp rbx, 1
+	je syscall_one
+	
+	;if n == 2
+	cmp rbx, 2
+	je syscall_two
+
+	;if n == 3
+	cmp rbx, 3
+	je syscall_three
+	
+	;if n == 4
+	cmp rbx, 4
+	je syscall_four
+
+	;if n == 5
+	cmp rbx, 5
+	je syscall_five
+
+	;if n == 6, do here
+
+	;pop mlv (six arg)
+	mov r8, [r12]
+	add r12, 8
+
+	;pop mlv (five arg)
+	mov r9, [r12]
+	add r12, 8
+
+	;pop mlv (fourth arg)
+	mov r10, [r12]
+	add r12, 8
+
+	;pop mlv (third arg)
+	mov rdx, [r12]
+	add r12, 8
+
+	;pop mlv (second arg)
+	mov rsi, [r12]
+	add r12, 8
+
+	;pop mlv (first arg)
+	mov rdi, [r12]
+	add r12, 8
+
+	syscall
+
+	jmp command_finish
+
 do_command:
 	;if word_len == 0
 	cmp byte [rbp-13], 0
@@ -885,6 +1029,15 @@ do_command:
 	;if true
 	cmp rax, 1
 	je load_my
+
+	;if else word == "syscall"
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "syscall"
+	call strcmp
+	;if true
+	cmp rax, 1
+	je syscall_my
 
 	jmp command_finish
 

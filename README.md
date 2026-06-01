@@ -114,6 +114,12 @@ make main
 |--------|-------------|
 | `//` | Line comment — everything after `//` is ignored |
 
+### System
+
+| Syntax | Description |
+|--------|-------------|
+| 'syscall' | Perform the syscall |
+
 ---
 
 ## 💡 Examples
@@ -162,6 +168,17 @@ end
 ```forth
 mem 1 .         //store 1 into the memory
 mem , dump      //read from memory one byte
+```
+
+### System
+
+```forth
+1 //1 arg
+2 //2 arg
+3 //n arg
+3 //amount of arguments (n)
+1 //syscall number
+syscall
 ```
 ---
 
