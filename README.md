@@ -105,6 +105,8 @@ make main
 | Syntax | Description |
 |--------|-------------|
 | `mem` | Push the address of the memory buffer for reading/writing |
+|  '.'  | Store the given byte at the given address |
+|  ','  | Load a byte from the given address |
 
 ### Comments
 
@@ -155,6 +157,12 @@ end
 3 7 < dump      // 1 (less than)
 ```
 
+### Memory
+
+```forth
+mem 1 .         //store 1 into the memory
+mem , dump      //read from memory one byte
+```
 ---
 
 ## 🏗️ How It Works

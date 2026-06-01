@@ -17,7 +17,7 @@ _start:
 	push rbp
 	mov rbp, rsp
 
-	;malloc 32 byte
+	;malloc 48 byte
 	sub rsp, 48
 
 	;inic stack my language
@@ -659,6 +659,38 @@ mem_my:
 
 	jmp command_finish
 
+load_my:
+	;pop last mlv
+	mov rax, [r12]
+	add r12, 8
+
+	;read one byte
+	mov bl, byte [rax]
+	movzx rax, bl
+
+	;push one byte
+	sub r12, 8
+	mov [r12], rax
+
+	jmp command_finish
+
+store_my:
+	;get last mlv (first = what store)
+	mov rax, [r12]
+	add r12, 8
+
+	;get last mlv (second = address)
+	mov rdi, [r12]
+	add r12, 8
+
+	;zip rax
+	mov sil, al
+
+	;set first el of mfu zip rax
+	mov byte [rdi], sil
+
+	jmp command_finish
+
 do_command:
 	;if word_len == 0
 	cmp byte [rbp-13], 0
@@ -835,6 +867,24 @@ do_command:
 	;if true
 	cmp rax, 1
 	je mem_my
+
+	;if else word == "."
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "."
+	call strcmp
+	;if true
+	cmp rax, 1
+	je store_my
+
+	;if else word == ","
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const ","
+	call strcmp
+	;if true
+	cmp rax, 1
+	je load_my
 
 	jmp command_finish
 
