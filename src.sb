@@ -1,13 +1,5 @@
-// write "abc"
-mem 0 + 97 .
-mem 1 + 98 .
-mem 2 + 99 .
-mem 3 + 10 .
-
-//do syscall
-1     // fd
-mem   // buff
-4     // len
-3     // 3 arg
-1     // 1 syscall (write)
-syscall
+10 0 while 2dup > do
+  dup dump
+  1 +
+end
+// prints: 

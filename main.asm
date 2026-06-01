@@ -480,6 +480,22 @@ dup_my:
 
 	jmp command_finish
 
+two_dup_my:
+	;get two numbers but no remove them
+	mov r8, r12
+	mov rdi, [r8]
+	add r8, 8
+	mov rax, [r8]
+	add r8, 8
+
+	;push mlv
+	sub r12, 8
+	mov [r12], rax
+	sub r12, 8
+	mov [r12], rdi
+
+	jmp command_finish
+
 not_equal_my:
 	;save first stack
 	mov rax, [r12]
@@ -976,6 +992,15 @@ do_command:
 	cmp rax, 1
 	je dup_my
 
+	;if else word == "2dup"
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "2dup"
+	call strcmp
+	;if true
+	cmp rax, 1
+	je two_dup_my
+
 	;if else word == "while"
 	mov rax, qword [rbp-21]
 	movzx rsi, byte [rbp-13]
@@ -1086,6 +1111,15 @@ new_line:
 	jmp go_for_line
 
 go_for_line_loop:
+	;if word == //
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "//"
+	call strcmp
+	;if true
+	cmp rax, 1
+	je comment_my
+
 	mov rax, qword [rbp-8]
 
 	;if its \n

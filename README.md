@@ -66,6 +66,7 @@ make main
 |--------|-------------|---------|
 | `<number>` | Push a number onto the stack | `42` → stack: `[42]` |
 | `dup` | Duplicate the top of the stack | `5 dup` → stack: `[5, 5]` |
+| `2dup` | Duplicate two numbers of the top of stack | `10 0 2dup` → stack: `[10, 0, 10, 0]` |
 
 ### Arithmetic
 
@@ -146,12 +147,11 @@ end
 ### Countdown Loop
 
 ```forth
-10
-while dup 0 > do
+10 0 while 2dup > do
   dup dump
-  1 -
+  1 +
 end
-// prints: 10 9 8 7 6 5 4 3 2 1
+// prints: 0 1 2 3 4 5 6 7 8 9
 ```
 
 ### Comparisons
