@@ -1,3 +1,23 @@
+;RAX (8 bytes)
+;EAX (4 bytes)
+;AX (2 bytes)
+;AL (1 byte)
+
+;RDI (8 bytes)
+;EDI (4 bytes)
+;DI (2 bytes)
+;DIL (1 byte)
+
+;RSI (8 bytes)
+;ESI (4 bytes)
+;SI (2 bytes)
+;SIL (1 byte)
+
+;RDX (8 bytes)
+;EDX (4 bytes)
+;DX (2 bytes)
+;DL (1 byte)
+
 format ELF64 executable
 
 segment readable executable
@@ -42,10 +62,10 @@ _start:
 	;3 = skip to end
 	;4 = for while pull stack
 	mov qword [rbp-31], if_stack_end
-	;char * = src // its pointer will point on words, after space, whose after while
-	mov qword [rbp-39], src
-	;uint16_t = src_len //
-	mov dword [rbp-43], src_len
+	;while stack
+	mov qword [rbp-39], while_stack_end
+	;while stack for len
+	mov qword [rbp-47], while_stack_len_end
 
 	;go to while
 	jmp go_for_line
@@ -449,13 +469,27 @@ else_my_two:
 	jmp command_finish
 
 return_to_while:
-	;src = while
-	;src_len = while_len
+	;src = while stack last
+	;src_len = while_len stack last
 	mov rax, qword [rbp-39]
-	mov qword [rbp-8], rax
+	mov rdi, qword [rax]
+	mov qword [rbp-8], rdi
 
-	mov eax, dword [rbp-43]
+	mov rdi, qword [rbp-47]
+	mov eax, dword [rdi]
 	mov dword [rbp-12], eax
+
+	jmp command_finish
+
+end_my_while:
+	;pop if stack
+	add qword [rbp-31], 8
+
+	;pop while stack
+	add qword [rbp-39], 8
+
+	;pop while len stack
+	add qword [rbp-47], 4
 
 	jmp command_finish
 
@@ -464,6 +498,10 @@ end_my:
 	mov rax, qword [rbp-31]
 	cmp qword [rax], 4
 	je return_to_while
+
+	;if last if stack value == 3
+	cmp qword [rax], 3
+	je end_my_while
 
 	;remove last if stack value
 	add qword [rbp-31], 8
@@ -607,13 +645,19 @@ below_equal_my:
 	jmp command_finish
 
 while_my:
-	;set [rbp-39] space
+	;push while stack space
 	mov rax, qword [rbp-8]
-	mov qword [rbp-39], rax
+	mov rdi, qword [rbp-39]
+	sub rdi, 8
+	mov qword [rdi], rax
+	mov qword [rbp-39], rdi
 
 	;save length
 	mov eax, dword [rbp-12]
-	mov dword [rbp-43], eax
+	mov rdi, qword [rbp-47]
+	sub rdi, 4
+	mov dword [rdi], eax
+	mov qword [rbp-47], rdi
 
 	;push in if stack 4
 	mov rax, qword [rbp-31]
@@ -851,6 +895,86 @@ syscall_my:
 
 	jmp command_finish
 
+drop_my:
+	;pop mlv
+	add r12, 8
+
+	jmp command_finish
+
+shr_my:
+	;pop mlv (>> ?)
+	mov rdi, [r12]
+	add r12, 8
+
+	;pop mlv (number)
+	mov rax, [r12]
+	add r12, 8
+
+	;shr
+	mov cl, dil
+	shr rax, cl
+
+	;push rax
+	sub r12, 8
+	mov [r12], rax
+
+	jmp command_finish
+
+shl_my:
+	;pop mlv (<< ?)
+	mov rdi, [r12]
+	add r12, 8
+
+	;pop mlv (number)
+	mov rax, [r12]
+	add r12, 8
+
+	;shl
+	mov cl, dil
+	shl rax, cl
+
+	;push rax
+	sub r12, 8
+	mov [r12], rax
+
+	jmp command_finish
+
+bor_my:
+	;pop mlv (| ?)
+	mov rdi, [r12]
+	add r12, 8
+
+	;pop mlv (number)
+	mov rax, [r12]
+	add r12, 8
+
+	;or
+	or rax, rdi
+
+	;push rax
+	sub r12, 8
+	mov [r12], rax
+
+	jmp command_finish
+
+band_my:
+	;pop mlv (& ?)
+	mov rdi, [r12]
+	add r12, 8
+
+	;pop mlv (number)
+	mov rax, [r12]
+	add r12, 8
+
+	;and
+	and rax, rdi
+
+	;push rax
+	sub r12, 8
+	mov [r12], rax
+
+	jmp command_finish
+
 do_command:
 	;if word_len == 0
 	cmp byte [rbp-13], 0
@@ -1064,6 +1188,51 @@ do_command:
 	cmp rax, 1
 	je syscall_my
 
+	;if else word == "drop"
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "drop"
+	call strcmp
+	;if true
+	cmp rax, 1
+	je drop_my
+
+	;if else word == "shr"
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "shr"
+	call strcmp
+	;if true
+	cmp rax, 1
+	je shr_my
+
+	;if else word == "shl"
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "shl"
+	call strcmp
+	;if true
+	cmp rax, 1
+	je shl_my
+
+	;if else word == "bor"
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "bor"
+	call strcmp
+	;if true
+	cmp rax, 1
+	je bor_my
+
+	;if else word == "band"
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "band"
+	call strcmp
+	;if true
+	cmp rax, 1
+	je band_my
+
 	jmp command_finish
 
 command_finish:
@@ -1176,8 +1345,16 @@ src_len = $ - src
 mlv rb 800
 mlv_end:
 
+;100 because its 100 bytes, 1 byte = 1 flag
 if_stack db 100 dup (0)
 if_stack_end:
+
+;its char **, 
+while_stack rq 800
+while_stack_end:
+
+while_stack_len rd 400
+while_stack_len_end:
 
 ;memory for user
 mfu rb 800

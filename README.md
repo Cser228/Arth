@@ -67,6 +67,16 @@ make main
 | `<number>` | Push a number onto the stack | `42` → stack: `[42]` |
 | `dup` | Duplicate the top of the stack | `5 dup` → stack: `[5, 5]` |
 | `2dup` | Duplicate two numbers of the top of stack | `10 0 2dup` → stack: `[10, 0, 10, 0]` |
+| `drop` | Pop last number in the stack | `10 10 drop` → stack: `[10]` |
+
+### Bits Operations
+
+| Syntax | Description | Example |
+|--------|-------------|---------|
+| `shr` | Shifts all bytes in first arg by second arg right | `4 1 shr` → stack: `[2]` |
+| `shl` | Shifts all bytes in first arg by second arg left | `1 1 shr` → stack: `[2]` |
+| `bor` | Compare each bytes in first arg by or by each bytes in second arg | '1 2 bor' → stack: `[3]` |
+| `band` | Compare each bytes in first arg by and by each bytes in second arg | `1 3 band` → stack: `[1]` |
 
 ### Arithmetic
 
@@ -127,7 +137,7 @@ make main
 
 ### Arithmetic & Output
 
-```forth
+```
 10 20 + dump    // 30
 50 8 - dump     // 42
 100 dup dump    // 100
@@ -136,7 +146,7 @@ make main
 
 ### Conditionals
 
-```forth
+```
 10 5 > if
   1 dump        // prints 1 (true)
 else
@@ -146,17 +156,18 @@ end
 
 ### Countdown Loop
 
-```forth
+```
 10 0 while 2dup > do
   dup dump
   1 +
 end
+drop drop
 // prints: 0 1 2 3 4 5 6 7 8 9
 ```
 
 ### Comparisons
 
-```forth
+```
 5 5 = dump      // 1 (equal)
 5 3 != dump     // 1 (not equal)
 10 5 >= dump    // 1 (greater or equal)
@@ -165,20 +176,35 @@ end
 
 ### Memory
 
-```forth
+```
 mem 1 .         //store 1 into the memory
 mem , dump      //read from memory one byte
 ```
 
 ### System
 
-```forth
+```
 1 //1 arg
 2 //2 arg
 3 //n arg
 3 //amount of arguments (n)
 1 //syscall number
 syscall
+```
+
+### Bits Operations
+
+```
+4 1 shl //4 << 1
+//4 = 0b00000100
+//4 << 1 = 0b00001000
+//1 = 0b00000001
+1 bor
+9 = if
+	1 dump
+else
+	0 dump
+end
 ```
 ---
 
