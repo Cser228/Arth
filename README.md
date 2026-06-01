@@ -105,8 +105,8 @@ make main
 | Syntax | Description |
 |--------|-------------|
 | `mem` | Push the address of the memory buffer for reading/writing |
-|  '.'  | Store the given byte at the given address |
-|  ','  | Load a byte from the given address |
+| `.` | Store the given byte at the given address |
+| `,` | Load a byte from the given address |
 
 ### Comments
 
@@ -118,7 +118,7 @@ make main
 
 | Syntax | Description |
 |--------|-------------|
-| 'syscall' | Perform the syscall |
+| `syscall` | Perform the syscall |
 
 ---
 
