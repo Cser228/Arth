@@ -1,9 +1,9 @@
-main: main.asm src.sb
-	fasm main.asm
+main: main.asm
+	fasm main.asm arth
 
-test: test.asm src.sb
+test: test.asm
 	fasm test.asm
 	ld test.o -o test
 
-all: main.asm test.asm src.sb
+all: main.asm test.asm
 	main test

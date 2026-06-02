@@ -32,10 +32,10 @@ make main
 
 ### Write your program
 
-Create a file with any name and `.sb` extension:
+Create a file with any name and `.arth` extension:
 
 ```pascal
-// hello.sb
+// hello.arth
 35 34 + dump        // prints 69
 10 20 + dup dump    // prints 30
 5 - dump            // prints 25
@@ -46,7 +46,7 @@ Create a file with any name and `.sb` extension:
 Run the code!
 
 ```bash
-./main file_name.sb
+./main file_name.arth
 ```
 
 ---
@@ -127,10 +127,15 @@ Run the code!
 |--------|-------------|
 | `syscall` | Perform the syscall |
 
-### Macros (rename soon)
+### Macros
 | Syntax | Description |
 |--------|-------------|
 | `macro` | You can write whatever and name it somehow, and when you write name of macro, interpritator auto replace name with implementation |
+
+### Dependencies
+| Syntax | Description |
+|--------|-------------|
+| `include` | Add code in the file to this file |
 
 ---
 
@@ -231,13 +236,22 @@ end
 "Hello World!\n" write      //print Hello World!(new_line)
 ```
 
+### Dependencies
+
+```pascal
+include "io.arth"
+
+"Hello World!\n" write
+//in io.arth can be macro write
+```
+
 ---
 
 ## 🏗️ How It Works
 
 ```
 ┌──────────────┐      ┌────────────────┐      ┌──────────────┐
-│  .sb Source  │ ───▶ │  ASM Compiler  │ ───▶ │  Executable  │
+│ .arth Source │ ───▶ │  ASM Compiler  │ ───▶ │  Executable  │
 │  (your code) │      │   (x86_64)     │      │ (native bin) │
 └──────────────┘      └────────────────┘      └──────────────┘
 ```

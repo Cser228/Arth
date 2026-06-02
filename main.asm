@@ -1860,5 +1860,5 @@ mbl_end:
 ;LANGUAGE VARIABLES
 
 newline_character db 10
-error db "ERROR: amount of arguments don't equal to 2. Example: ./arth src.sb", 10
+error db "ERROR: amount of arguments don't equal to 2. Example: ./arth src.arth", 10
 error_len = $ - error

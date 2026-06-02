@@ -1,7 +1,7 @@
-main
+arth
 prompt.txt
 main_save.asm
-src_save.sb
+src_save.arth
 test
 test.asm
 test.o
