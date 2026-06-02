@@ -34,7 +34,7 @@ make main
 
 Create a file with any name and `.sb` extension:
 
-```forth
+```pascal
 // hello.sb
 35 34 + dump        // prints 69
 10 20 + dup dump    // prints 30
@@ -134,6 +134,11 @@ make main
 |--------|-------------|
 | `syscall` | Perform the syscall |
 
+### Macros (rename soon)
+| Syntax | Description |
+|--------|-------------|
+| `macro` | You can write whatever and name it somehow, and when you write name of macro, interpritator auto replace name with implementation |
+
 ---
 
 ## 💡 Examples
@@ -216,6 +221,21 @@ end
 4 1 swap dump dump //print: 1 4
 5 10 over dump dump dump //print: 5 10 5
 1 "Hello World!" 3 1 syscall //print: Hello World!
+```
+
+### Macros
+
+```pascal
+macro write
+	mem ,
+	over mem swap .
+	swap drop swap
+	1 swap
+	mem , 3 1 syscall
+	mem swap .
+end
+
+"Hello World!\n" write      //print Hello World!(new_line)
 ```
 
 ---

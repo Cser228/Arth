@@ -37,8 +37,8 @@ _start:
 	push rbp
 	mov rbp, rsp
 
-	;malloc 64 byte
-	sub rsp, 64
+	;malloc 128 byte
+	sub rsp, 128
 
 	;inic stack my language
 	mov r12, mlv_end
@@ -50,7 +50,7 @@ _start:
 
 	;char *a = src
 	mov qword [rbp-8], src
-	;uint16_t b = src_len
+	;uint32_t b = src_len
 	mov dword [rbp-12], src_len
 	;uint8_t word_len = 0
 	mov byte [rbp-13], 0
@@ -64,6 +64,8 @@ _start:
 	;2 = skip to else or end
 	;3 = skip to end
 	;4 = for while pull stack
+	;5 = for macro inic
+	;6 = for macro do
 	mov qword [rbp-31], if_stack_end
 	;while stack
 	mov qword [rbp-39], while_stack_end
@@ -71,6 +73,21 @@ _start:
 	mov qword [rbp-47], while_stack_len_end
 	;uint8_t now_we_are_in_the_quotes?
 	mov byte [rbp-48], 0
+
+	;macro names stack
+	mov qword [rbp-56], mn_end
+	;macro names len stack
+	mov qword [rbp-64], mnl_end
+	;macro implemantation stack
+	mov qword [rbp-72], mi_end
+	;macro back stack
+	mov qword [rbp-80], mb_end
+	;macro back len stack
+	mov qword [rbp-88], mbl_end
+	;macro next word my
+	mov byte [rbp-89], 0
+	;macro implemantation len stack
+	mov qword [rbp-97], mil_end
 
 	;go to while
 	jmp go_for_line
@@ -467,6 +484,33 @@ end_my_while:
 
 	jmp command_finish
 
+end_macro:
+	;pop if_stack
+	add qword [rbp-31], 8
+
+	;if back_stack == mb_end
+	mov rax, qword [rbp-80]
+	cmp rax, mb_end
+	je command_finish
+
+	;src = macro back stack[]
+	mov rax, qword [rbp-80]
+	mov rdi, qword [rax]
+	mov qword [rbp-8], rdi
+
+	;src_len = macro back len stack[]
+	mov rax, qword [rbp-88]
+	mov rdi, qword [rax]
+	mov dword [rbp-12], edi
+
+	;pop macro back stack
+	add qword [rbp-80], 8
+
+	;pop macro back len stack
+	add qword [rbp-88], 8
+
+	jmp command_finish
+
 end_my:
 	;if last if stack value == 4
 	mov rax, qword [rbp-31]
@@ -479,6 +523,14 @@ end_my:
 	;if last if stack value == 3
 	cmp qword [rax], 3
 	je end_my_while
+
+	;if last if stack value == 5
+	cmp qword [rax], 5
+	je end_macro
+
+	;if last if stack value == 6
+	cmp qword [rax], 6
+	je end_macro
 
 	;remove last if stack value
 	add qword [rbp-31], 8
@@ -1110,9 +1162,73 @@ push_str_my:
 
 	jmp .while_condition
 
+macro_my:
+	;set macro next word my 1
+	mov byte [rbp-89], 1
+
+	;push if stack 5
+	mov rax, qword [rbp-31]
+	sub rax, 8
+	mov qword [rax], 5
+	mov qword [rbp-31], rax
+
+	jmp command_finish
+
+macro_save_name:
+	;push macro names stack word
+	mov rax, qword [rbp-56]
+	sub rax, 8
+	mov rdi, qword [rbp-21]
+	mov qword [rax], rdi
+	mov qword [rbp-56], rax
+
+	;push macro names len stack word_len
+	mov rax, qword [rbp-64]
+	sub rax, 8
+	movzx rdi, byte [rbp-13]
+	mov qword [rax], rdi
+	mov qword [rbp-64], rax
+
+	;push macro implemantation stack (src-1)
+	mov rax, qword [rbp-72]
+	sub rax, 8
+	mov rdi, qword [rbp-8]
+	dec rdi
+	mov qword [rax], rdi
+	mov qword [rbp-72], rax
+
+	;push macro implemantation len stack src_len
+	mov rax, qword [rbp-97]
+	sub rax, 8
+	mov edi, dword [rbp-12]
+	mov qword [rax], rdi
+	mov qword [rbp-97], rax
+
+	;set macro next word my 0
+	mov byte [rbp-89], 0
+
+	jmp command_finish
+
 do_command:
 	;if word_len == 0
 	cmp byte [rbp-13], 0
+	je command_finish
+
+	; end
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "end"
+	call strcmp
+	cmp rax, 1
+	je end_my
+
+	;if macro next word my == 1
+	cmp byte [rbp-89], 1
+	je macro_save_name
+
+	;if if stack == 5
+	mov rax, qword [rbp-31]
+	cmp qword [rax], 5
 	je command_finish
 
 	; if
@@ -1130,14 +1246,6 @@ do_command:
 	call strcmp
 	cmp rax, 1
 	je else_my
-
-	; end
-	mov rax, qword [rbp-21]
-	movzx rsi, byte [rbp-13]
-	strcmp_const "end"
-	call strcmp
-	cmp rax, 1
-	je end_my
 
 	; while
 	mov rax, qword [rbp-21]
@@ -1362,6 +1470,91 @@ do_command:
 	cmp rax, 1
 	je over_my
 
+	; macro
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "macro"
+	call strcmp
+	cmp rax, 1
+	je macro_my
+
+	;check if there is in macro names stack
+	mov r8, qword [rbp-56]
+	mov r9, qword [rbp-64]
+	mov r10, 0
+	jmp checking_macro_names_condition
+
+checking_macro_names_condition:
+	;macro names stack != macro names stack end
+	;macro names len stack != macro names stack end
+	mov rax, mn_end
+	cmp rax, r8
+	je command_finish
+
+	mov rax, mnl_end
+	cmp rax, r9
+	je command_finish
+
+	jmp .while
+
+.while:
+	mov rax, qword [r8]
+	mov rdi, qword [rbp-21]
+	mov rsi, qword [r9]
+	movzx rdx, byte [rbp-13]
+
+	call strcmp
+	cmp rax, 1
+	je .find
+
+	add r8, 8
+	add r9, 8
+	inc r10
+
+	jmp checking_macro_names_condition
+
+.find:
+	;push macro back stack src
+	mov rax, qword [rbp-80]
+	sub rax, 8
+	mov rdi, qword [rbp-8]
+	mov qword [rax], rdi
+	mov qword [rbp-80], rax
+
+	;push macro back len stack src_len
+	mov rax, qword [rbp-88]
+	sub rax, 8
+	mov edi, dword [rbp-12]
+	mov qword [rax], rdi
+	mov qword [rbp-88], rax
+
+	;push if stack 6
+	mov rax, qword [rbp-31]
+	sub rax, 8
+	mov qword [rax], 6
+	mov qword [rbp-31], rax
+	
+	;get implemantation stack char *
+	mov rax, qword [rbp-72]
+	mov rdi, r10
+	shl rdi, 3
+	add rax, rdi
+
+	;set src = char *
+	mov rdi, qword [rax]
+	mov qword [rbp-8], rdi
+
+	;get implemantation len stack int
+	mov rax, qword [rbp-97]
+	mov rdi, r10
+	shl rdi, 3
+	add rax, rdi
+
+	;set src_len = int
+	mov rax, qword [rbp-97]
+	mov rdi, qword [rax]
+	mov dword [rbp-12], edi
+
 	jmp command_finish
 
 command_finish:
@@ -1520,13 +1713,15 @@ exit:
 
 segment readable writable
 
+;INTERPRATATOR VARIABLES
 src file "src.sb"
 src_len = $ - src
+;INTERPRATATOR VARIABLES
+
+;LANGUAGE VARIABLES
 
 ;my language variables
-;one variable 8 byte
-;all variable can: 1250
-mlv rb 10000
+mlv rq 1250
 mlv_end:
 
 ;if stack
@@ -1537,13 +1732,49 @@ if_stack_end:
 while_stack rq 10000
 while_stack_end:
 
+;while_stack = while_stack_len
+
 while_stack_len rd 10000
 while_stack_len_end:
 
 ;memory for user
 mfu rb 5000
 
+;mfu + mfus = all memory for user
+
 ;memory for user string
 mfus rb 5000
+
+;MACRO
+;macro names stack
+mn rq 1000
+mn_end:
+
+;mn = mnl
+
+;macro names len stack
+mnl rb 1000
+mnl_end:
+
+;mn = mi
+
+;macro implemantation stack
+mi rq 1000
+mi_end:
+
+;macro implemantation len stack
+mil rq 1000
+mil_end:
+
+;macro back stack
+mb rq 1000
+mb_end:
+
+;macro back len stack
+mbl rq 1000
+mbl_end:
+;MACRO
+
+;LANGUAGE VARIABLES
 
 newline_character db 10
