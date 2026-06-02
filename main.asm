@@ -37,11 +37,14 @@ _start:
 	push rbp
 	mov rbp, rsp
 
-	;malloc 48 byte
-	sub rsp, 48
+	;malloc 64 byte
+	sub rsp, 64
 
 	;inic stack my language
 	mov r12, mlv_end
+
+	;inic memory for user string
+	mov r13, mfus
 
 	;inic variables
 
@@ -66,6 +69,8 @@ _start:
 	mov qword [rbp-39], while_stack_end
 	;while stack for len
 	mov qword [rbp-47], while_stack_len_end
+	;uint8_t now_we_are_in_the_quotes?
+	mov byte [rbp-48], 0
 
 	;go to while
 	jmp go_for_line
@@ -996,6 +1001,115 @@ over_my:
 	mov [r12], rdi
 	jmp command_finish
 
+push_str_my:
+	;remove "
+	inc qword [rbp-21]
+	dec byte [rbp-13]
+
+	;save start
+	mov rax, r13
+
+	;save len
+	mov dl, byte [rbp-13]
+
+	jmp .while_condition
+
+.while_condition:
+	;if word_len != 0
+	cmp byte [rbp-13], 0
+	jne .while_loop
+
+	;push mlv start
+	sub r12, 8
+	mov [r12], rax
+
+	;push mlv len
+	movzx rax, dl
+	sub r12, 8
+	mov [r12], rax
+
+	inc r13
+
+	jmp command_finish
+
+.while_loop:
+	;if word[] == \
+	mov rdi, qword [rbp-21]
+	mov sil, byte [rdi]
+	cmp sil, 92
+	je .its_backside_flash
+
+	;set mfus[] word[]
+	mov rdi, qword [rbp-21]
+	mov sil, byte [rdi]
+	mov byte [r13], sil
+
+	;mfus++ word++ word_len--
+	inc r13
+	inc qword [rbp-21]
+	dec byte [rbp-13]
+
+	jmp .while_condition
+
+.its_backside_flash:
+	mov rdi, qword [rbp-21]
+	inc rdi
+
+	;if *(word+1) == n
+	cmp byte [rdi], 110
+	je .n
+
+	;if *(word+1) == t
+	cmp byte [rdi], 116
+	je .t
+
+	;if *(word+1) == "
+	cmp byte [rdi], 34
+	je .q
+
+	;set mfus[] \
+	mov byte [r13], 92
+
+	;mfus++ (word += 2) (word_len -= 2)
+	inc r13
+	add qword [rbp-21], 2
+	sub byte [rbp-13], 2
+
+	jmp .while_condition
+
+.n:
+	;set mfus[] \n
+	mov byte [r13], 10
+
+	;mfus++ (word += 2) (word_len -= 2)
+	inc r13
+	add qword [rbp-21], 2
+	sub byte [rbp-13], 2
+
+	jmp .while_condition
+
+.t:
+	;set mfus[] \t
+	mov byte [r13], 9
+
+	;mfus++ (word += 2) (word_len -= 2)
+	inc r13
+	add qword [rbp-21], 2
+	sub byte [rbp-13], 2
+
+	jmp .while_condition
+
+.q:
+	;set mfus[] "
+	mov byte [r13], 34
+
+	;mfus++ (word += 2) (word_len -= 2)
+	inc r13
+	add qword [rbp-21], 2
+	sub byte [rbp-13], 2
+
+	jmp .while_condition
+
 do_command:
 	;if word_len == 0
 	cmp byte [rbp-13], 0
@@ -1058,6 +1172,11 @@ do_command:
 	call its_number
 	cmp rax, 1
 	je push_my
+
+	;if *word == "
+	mov rax, qword [rbp-21]
+	cmp byte [rax], 34
+	je push_str_my
 
 	; dump
 	mov rax, qword [rbp-21]
@@ -1289,8 +1408,74 @@ new_line:
 
 	jmp go_for_line
 
-go_for_line_loop:
+its_quotes:
+	;set we are in quotes !
+	mov al, byte [rbp-48]
+	
+	cmp al, 0
+	je .true
+
+	;if *(src-1) == \
 	mov rax, qword [rbp-8]
+	dec rax
+	cmp byte [rax], 92
+	je .ignore
+
+	mov byte [rbp-48], 0
+
+	;src++ src_len--
+	inc qword [rbp-8]
+	dec dword [rbp-12]
+
+	jmp do_command
+
+.ignore:
+	;src++ src_len-- word_len++
+	inc qword [rbp-8]
+	dec dword [rbp-12]
+	inc byte [rbp-13]
+
+	jmp go_for_line
+
+.true:
+	mov byte [rbp-48], 1
+
+	;src++ src_len-- word_len++
+	inc qword [rbp-8]
+	dec dword [rbp-12]
+	inc byte [rbp-13]
+
+	jmp go_for_line
+
+its_space:
+	;check we are in quotes
+	mov al, byte [rbp-48]
+	cmp al, 1
+	je .ignore
+
+	jmp do_command
+
+.ignore:
+	;src++ src_len-- word_len++
+	inc qword [rbp-8]
+	dec dword [rbp-12]
+	inc byte [rbp-13]
+
+go_for_line_loop:
+	;if word == //
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "//"
+	call strcmp
+	;if true
+	cmp rax, 1
+	je comment_my
+
+	mov rax, qword [rbp-8]
+
+	;if its "
+	cmp byte [rax], 34
+	je its_quotes
 
 	;if its \n
 	cmp byte [rax], 10
@@ -1298,11 +1483,11 @@ go_for_line_loop:
 
 	;if its space
 	cmp byte [rax], 32
-	je do_command
+	je its_space
 
 	;if its \t
 	cmp byte [rax], 9
-	je do_command
+	je its_space
 
 	;src++ src_len-- word_len++
 	inc qword [rbp-8]
@@ -1339,6 +1524,8 @@ src file "src.sb"
 src_len = $ - src
 
 ;my language variables
+;one variable 8 byte
+;all variable can: 1250
 mlv rb 10000
 mlv_end:
 
@@ -1354,6 +1541,9 @@ while_stack_len rd 10000
 while_stack_len_end:
 
 ;memory for user
-mfu rb 10000
+mfu rb 5000
+
+;memory for user string
+mfus rb 5000
 
 newline_character db 10
