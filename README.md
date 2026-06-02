@@ -41,19 +41,12 @@ Create a file with any name and `.sb` extension:
 5 - dump            // prints 25
 ```
 
-### Link and run
+### Run code
 
-At the end of `main.asm`, specify your source file:
-
-```asm
-src "hello.sb"
-```
-
-Then compile and run:
+Run the code!
 
 ```bash
-make main
-./main
+./main file_name.sb
 ```
 
 ---

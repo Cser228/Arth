@@ -33,6 +33,21 @@ macro strcmp_const str_val {
 }
 
 _start:
+	;get argc
+    pop rax
+    
+    ;if argc != 2
+    cmp rax, 2
+    jne exit_with_reason
+    
+    ;program name
+    pop rax
+    
+    ;file name
+    pop rax
+
+	call read_file
+
 	;inic stack
 	push rbp
 	mov rbp, rsp
@@ -49,13 +64,13 @@ _start:
 	;inic variables
 
 	;char *a = src
-	mov qword [rbp-8], src
+	mov qword [rbp-8], rax
 	;uint32_t b = src_len
-	mov dword [rbp-12], src_len
+	mov dword [rbp-12], edi
 	;uint8_t word_len = 0
 	mov byte [rbp-13], 0
 	;char *a = src // it will point on the first character after space
-	mov qword [rbp-21], src
+	mov qword [rbp-21], rax
 	;uint16_t a = 1 // now we on line
 	mov word [rbp-23], 1
 	;if stack
@@ -91,6 +106,67 @@ _start:
 
 	;go to while
 	jmp go_for_line
+
+;char *read_file(const char *file_name);
+;rax = file_name
+;ret src = rax
+;ret src_len = rdi
+read_file:
+	mov rdi, rax
+	
+    ;open file
+    mov rax, 2
+    mov rsi, 0
+    mov rdx, 0
+    syscall
+    cmp rax, 0
+    jl exit_with_reason
+    
+    ;save fd
+    mov r15, rax
+    
+    ;get size of file
+    mov rax, 8
+    mov rdi, r15
+    mov rsi, 0
+    mov rdx, 2
+    syscall
+    mov r14, rax ; r14 = size
+    
+    ;back to the start of file
+    mov rax, 8
+    mov rdi, r15
+    mov rsi, 0
+    mov rdx, 0
+    syscall
+    
+	;allocate memory using MMAP (Senior way)
+    ;rax = 9 (mmap), rdi = 0, rsi = len, rdx = prot, r10 = flags, r8 = fd, r9 = offset
+    mov rax, 9
+    xor rdi, rdi
+    mov rsi, r14
+    mov rdx, 3 ; PROT_READ | PROT_WRITE
+    mov r10, 34 ; MAP_PRIVATE | MAP_ANONYMOUS
+    mov r8, -1
+    xor r9, r9
+    syscall
+    mov r13, rax ; r13 = allocated address
+    
+    ;read file into allocated memory
+    mov rax, 0
+    mov rdi, r15
+    mov rsi, r13
+    mov rdx, r14
+    syscall
+    
+    ;close file
+    mov rax, 3
+    mov rdi, r15
+    syscall
+
+	mov rax, r13
+	mov rdi, r14
+	ret
 
 write:
 	;print
@@ -1711,12 +1787,18 @@ exit:
     mov rdi, 0
     syscall
 
-segment readable writable
+exit_with_reason:
+	;write error
+	mov rsi, error
+	mov rdx, error_len
+	call write
 
-;INTERPRATATOR VARIABLES
-src file "src.sb"
-src_len = $ - src
-;INTERPRATATOR VARIABLES
+	;exit
+	mov rax, 60
+	mov rdi, 0
+	syscall
+
+segment readable writable
 
 ;LANGUAGE VARIABLES
 
@@ -1778,3 +1860,5 @@ mbl_end:
 ;LANGUAGE VARIABLES
 
 newline_character db 10
+error db "ERROR: amount of arguments don't equal to 2. Example: ./arth src.sb", 10
+error_len = $ - error
