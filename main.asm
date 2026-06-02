@@ -359,59 +359,46 @@ strcmp_false:
 	ret
 
 if_my:
+	;if last if stack exists and is 2 or 3 (skip mode)
+	mov rdi, qword [rbp-31]
+	cmp rdi, if_stack_end
+	je .no_skip
+	
+	mov rax, [rdi]
+	cmp rax, 2
+	je .push_skip
+	cmp rax, 3
+	je .push_skip
+
+.no_skip:
 	;get from mlv stack last
 	mov rax, [r12]
 	add r12, 8
 
 	;if if condition true, set if stack[] = 1
 	cmp rax, 1
-	je if_my_true
+	je .set_true
 
-	;else
+	;else set skip
 	mov rax, qword [rbp-31]
 	sub rax, 8
 	mov qword [rax], 2
 	mov qword [rbp-31], rax
-
 	jmp command_finish
 
-if_my_false_set:
-	;put on if stack false
+.set_true:
+	mov rax, qword [rbp-31]
+	sub rax, 8
+	mov qword [rax], 1
+	mov qword [rbp-31], rax
+	jmp command_finish
+
+.push_skip:
+	;just push skip to nested stack
 	mov rax, qword [rbp-31]
 	sub rax, 8
 	mov qword [rax], 2
 	mov qword [rbp-31], rax
-
-	jmp command_finish
-
-if_my_false:
-	;if if stack [-1] == 2
-	mov rax, qword [rbp-31]
-	add rax, 8
-	cmp qword [rax], 2
-	je if_my_false_set
-
-	;put on if stack true
-	mov rax, qword [rbp-31]
-	sub rax, 8
-	mov qword [rax], 1
-	mov qword [rbp-31], rax
-
-	jmp command_finish
-
-if_my_true:
-	;if if stack [-1] exists
-	mov rax, qword [rbp-31]
-	add rax, 8
-	cmp rax, if_stack_end
-	jne if_my_false
-
-	;put on if stack true
-	mov rax, qword [rbp-31]
-	sub rax, 8
-	mov qword [rax], 1
-	mov qword [rbp-31], rax
-
 	jmp command_finish
 
 else_my:
@@ -422,49 +409,31 @@ else_my:
 	cmp rdi, if_stack_end
 	je command_finish
 
-	;check if we have parent if on stack
+	;if parent if stack exists and is 2 or 3, do nothing
 	mov rax, rdi
 	add rax, 8
 	cmp rax, if_stack_end
-	je no_parent_skip      ;if next level is end, parent not exist
-
-	;if parent if stack == 2, skip all change logic
+	je .check_value
+	
 	mov rax, [rdi+8]
 	cmp rax, 2
-	je command_finish      ;parent if says skip, so we do nothing
+	je command_finish
+	cmp rax, 3
+	je command_finish
 
-	;!if stack last value
-	mov rax, qword [rbp-31]
-	cmp qword [rax], 2
-	je if_stack_set_one
-
-	mov rax, qword [rbp-31]
-	mov qword [rax], 2
-	mov qword [rbp-31], rax
-
-	jmp command_finish
-
-if_stack_set_one:
-	mov rax, qword [rbp-31]
-	mov qword [rax], 1
-	mov qword [rbp-31], rax
-
-	jmp command_finish
-
-no_parent_skip:
-	;get last value again
+.check_value:
+	;if current is 1 -> 2, if 2 -> 1
 	mov rax, [rdi]
-
-	;if last value was 2
+	cmp rax, 1
+	je .set_two
 	cmp rax, 2
-	je else_my_two
+	je .set_one
+	jmp command_finish
 
-	;set last if stack 2
+.set_two:
 	mov qword [rdi], 2
 	jmp command_finish
-
-else_my_two:
-	;set last if stack 1
+.set_one:
 	mov qword [rdi], 1
 	jmp command_finish
 
@@ -496,6 +465,9 @@ end_my_while:
 end_my:
 	;if last if stack value == 4
 	mov rax, qword [rbp-31]
+	cmp rax, if_stack_end
+	je command_finish
+
 	cmp qword [rax], 4
 	je return_to_while
 
@@ -645,6 +617,28 @@ below_equal_my:
 	jmp command_finish
 
 while_my:
+	;if skip mode, push 3 and skip
+	mov rdi, qword [rbp-31]
+	cmp rdi, if_stack_end
+	je .no_skip_init
+
+	mov rax, [rdi]
+	cmp rax, 2
+	je .push_skip
+	cmp rax, 3
+	je .push_skip
+
+.no_skip_init:
+	;check if we already have this address in while_stack
+	mov rdi, qword [rbp-39]
+	cmp rdi, while_stack_end
+	je .push_new
+
+	mov rax, [rdi]
+	cmp rax, qword [rbp-8]
+	je .only_push_if_stack
+
+.push_new:
 	;push while stack space
 	mov rax, qword [rbp-8]
 	mov rdi, qword [rbp-39]
@@ -659,39 +653,44 @@ while_my:
 	mov dword [rdi], eax
 	mov qword [rbp-47], rdi
 
+.only_push_if_stack:
 	;push in if stack 4
 	mov rax, qword [rbp-31]
 	sub rax, 8
 	mov qword [rax], 4
 	mov qword [rbp-31], rax
+	jmp command_finish
 
+.push_skip:
+	mov rax, qword [rbp-31]
+	sub rax, 8
+	mov qword [rax], 3
+	mov qword [rbp-31], rax
 	jmp command_finish
 
 do_my:
-	;check last if stack //FOR WHILE
+	;check last if stack
 	mov rax, qword [rbp-31]
-	cmp qword [rax], 4
-	je do_my_while
+	cmp rax, if_stack_end
+	je command_finish
 
+	cmp qword [rax], 4
+	je .do_while
 	jmp command_finish
 
-do_my_while:
+.do_while:
 	;pop mlv stack
 	mov rax, [r12]
 	add r12, 8
 
-	;if != 1
+	;if != 1, skip to end
 	cmp rax, 1
-	jne do_my_while_end
-
+	jne .set_skip
 	jmp command_finish
 
-do_my_while_end:
-	;replace last if stack into 3
+.set_skip:
 	mov rax, qword [rbp-31]
 	mov qword [rax], 3
-	mov qword [rbp-31], rax
-
 	jmp command_finish
 
 comment_my:
@@ -977,46 +976,24 @@ band_my:
 
 swap_my:
 	;[1, 2] [2, 1]
-	;rdi = 2
-	;rax = 1
-	;pop mlv
 	mov rdi, [r12]
 	add r12, 8
-
-	;pop mlv
 	mov rax, [r12]
-
-	;push mlv
 	mov [r12], rdi
-
-	;push mlv
 	sub r12, 8
 	mov [r12], rax
-
 	jmp command_finish
 
 over_my:
 	;[1, 2] [1, 2, 1]
-	;rax = 2
-	;rdi = 1
-	;pop mlv
 	mov rax, [r12]
 	add r12, 8
-
-	;pop mlv
 	mov rdi, [r12]
-
-	;push mlv
 	mov [r12], rdi
-	
-	;push mlv
 	sub r12, 8
 	mov [r12], rax
-
-	;push mlv
 	sub r12, 8
 	mov [r12], rdi
-
 	jmp command_finish
 
 do_command:
@@ -1024,274 +1001,245 @@ do_command:
 	cmp byte [rbp-13], 0
 	je command_finish
 
-	;if word == "if"
+	; if
 	mov rax, qword [rbp-21]
 	movzx rsi, byte [rbp-13]
 	strcmp_const "if"
 	call strcmp
-	;if true
 	cmp rax, 1
 	je if_my
 
-	;if word == "else"
+	; else
 	mov rax, qword [rbp-21]
 	movzx rsi, byte [rbp-13]
 	strcmp_const "else"
 	call strcmp
-	;if true
 	cmp rax, 1
 	je else_my
 
-	;if word == "end"
+	; end
 	mov rax, qword [rbp-21]
 	movzx rsi, byte [rbp-13]
 	strcmp_const "end"
 	call strcmp
-	;if true
 	cmp rax, 1
 	je end_my
 
-	;if last if stack is 2, skip all
-	mov rdi, qword [rbp-31]
-	mov rax, [rdi]
-
-	cmp rax, 2
-	je command_finish
-
-	;if last if stack is 3, skip all
-	cmp rax, 3
-	je command_finish
-
-	;its_number(word_now, word_len)
-	mov rax, qword [rbp-21]
-	movzx rdi, byte [rbp-13]
-	call its_number
-	;if true
-	cmp rax, 1
-	je push_my
-
-	;if word == "dump"
-	mov rax, qword [rbp-21]
-	movzx rsi, byte [rbp-13]
-	strcmp_const "dump"
-	call strcmp
-	;if true
-	cmp rax, 1
-	je dump_my
-
-	;if word == "+"
-	mov rax, qword [rbp-21]
-	movzx rsi, byte [rbp-13]
-	strcmp_const "+"
-	call strcmp
-	;if true
-	cmp rax, 1
-	je plus_my
-
-	;if word == "-"
-	mov rax, qword [rbp-21]
-	movzx rsi, byte [rbp-13]
-	strcmp_const "-"
-	call strcmp
-	;if true
-	cmp rax, 1
-	je minus_my
-
-	;if word == "="
-	mov rax, qword [rbp-21]
-	movzx rsi, byte [rbp-13]
-	strcmp_const "="
-	call strcmp
-	;if true
-	cmp rax, 1
-	je equal_my
-
-	;if word == "!="
-	mov rax, qword [rbp-21]
-	movzx rsi, byte [rbp-13]
-	strcmp_const "!="
-	call strcmp
-	;if true
-	cmp rax, 1
-	je not_equal_my
-
-	;if word == ">"
-	mov rax, qword [rbp-21]
-	movzx rsi, byte [rbp-13]
-	strcmp_const ">"
-	call strcmp
-	;if true
-	cmp rax, 1
-	je above_my
-
-	;if word == "<"
-	mov rax, qword [rbp-21]
-	movzx rsi, byte [rbp-13]
-	strcmp_const "<"
-	call strcmp
-	;if true
-	cmp rax, 1
-	je below_my
-
-	;if word == ">="
-	mov rax, qword [rbp-21]
-	movzx rsi, byte [rbp-13]
-	strcmp_const ">="
-	call strcmp
-	;if true
-	cmp rax, 1
-	je above_equal_my
-
-	;if word == "<="
-	mov rax, qword [rbp-21]
-	movzx rsi, byte [rbp-13]
-	strcmp_const "<="
-	call strcmp
-	;if true
-	cmp rax, 1
-	je below_equal_my
-
-	;if else word == "dup"
-	mov rax, qword [rbp-21]
-	movzx rsi, byte [rbp-13]
-	strcmp_const "dup"
-	call strcmp
-	;if true
-	cmp rax, 1
-	je dup_my
-
-	;if else word == "2dup"
-	mov rax, qword [rbp-21]
-	movzx rsi, byte [rbp-13]
-	strcmp_const "2dup"
-	call strcmp
-	;if true
-	cmp rax, 1
-	je two_dup_my
-
-	;if else word == "while"
+	; while
 	mov rax, qword [rbp-21]
 	movzx rsi, byte [rbp-13]
 	strcmp_const "while"
 	call strcmp
-	;if true
 	cmp rax, 1
 	je while_my
 
-	;if else word == "do"
+	; do
 	mov rax, qword [rbp-21]
 	movzx rsi, byte [rbp-13]
 	strcmp_const "do"
 	call strcmp
-	;if true
 	cmp rax, 1
 	je do_my
 
-	;if else word == "//"
+	mov rdi, qword [rbp-31]
+	cmp rdi, if_stack_end
+	je .normal_exec
+	
+	mov rax, [rdi]
+	cmp rax, 2
+	je command_finish
+	cmp rax, 3
+	je command_finish
+
+.normal_exec:
+	;its_number(word_now, word_len)
+	mov rax, qword [rbp-21]
+	movzx rdi, byte [rbp-13]
+	call its_number
+	cmp rax, 1
+	je push_my
+
+	; dump
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "dump"
+	call strcmp
+	cmp rax, 1
+	je dump_my
+
+	; +
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "+"
+	call strcmp
+	cmp rax, 1
+	je plus_my
+
+	; -
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "-"
+	call strcmp
+	cmp rax, 1
+	je minus_my
+
+	; =
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "="
+	call strcmp
+	cmp rax, 1
+	je equal_my
+
+	; !=
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "!="
+	call strcmp
+	cmp rax, 1
+	je not_equal_my
+
+	; >
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const ">"
+	call strcmp
+	cmp rax, 1
+	je above_my
+
+	; <
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "<"
+	call strcmp
+	cmp rax, 1
+	je below_my
+
+	; >=
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const ">="
+	call strcmp
+	cmp rax, 1
+	je above_equal_my
+
+	; <=
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "<="
+	call strcmp
+	cmp rax, 1
+	je below_equal_my
+
+	; dup
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "dup"
+	call strcmp
+	cmp rax, 1
+	je dup_my
+
+	; 2dup
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "2dup"
+	call strcmp
+	cmp rax, 1
+	je two_dup_my
+
+	; //
 	mov rax, qword [rbp-21]
 	movzx rsi, byte [rbp-13]
 	strcmp_const "//"
 	call strcmp
-	;if true
 	cmp rax, 1
 	je comment_my
 
-	;if else word == "mem"
+	; mem
 	mov rax, qword [rbp-21]
 	movzx rsi, byte [rbp-13]
 	strcmp_const "mem"
 	call strcmp
-	;if true
 	cmp rax, 1
 	je mem_my
 
-	;if else word == "."
+	; .
 	mov rax, qword [rbp-21]
 	movzx rsi, byte [rbp-13]
 	strcmp_const "."
 	call strcmp
-	;if true
 	cmp rax, 1
 	je store_my
 
-	;if else word == ","
+	; ,
 	mov rax, qword [rbp-21]
 	movzx rsi, byte [rbp-13]
 	strcmp_const ","
 	call strcmp
-	;if true
 	cmp rax, 1
 	je load_my
 
-	;if else word == "syscall"
+	; syscall
 	mov rax, qword [rbp-21]
 	movzx rsi, byte [rbp-13]
 	strcmp_const "syscall"
 	call strcmp
-	;if true
 	cmp rax, 1
 	je syscall_my
 
-	;if else word == "drop"
+	; drop
 	mov rax, qword [rbp-21]
 	movzx rsi, byte [rbp-13]
 	strcmp_const "drop"
 	call strcmp
-	;if true
 	cmp rax, 1
 	je drop_my
 
-	;if else word == "shr"
+	; shr
 	mov rax, qword [rbp-21]
 	movzx rsi, byte [rbp-13]
 	strcmp_const "shr"
 	call strcmp
-	;if true
 	cmp rax, 1
 	je shr_my
 
-	;if else word == "shl"
+	; shl
 	mov rax, qword [rbp-21]
 	movzx rsi, byte [rbp-13]
 	strcmp_const "shl"
 	call strcmp
-	;if true
 	cmp rax, 1
 	je shl_my
 
-	;if else word == "bor"
+	; bor
 	mov rax, qword [rbp-21]
 	movzx rsi, byte [rbp-13]
 	strcmp_const "bor"
 	call strcmp
-	;if true
 	cmp rax, 1
 	je bor_my
 
-	;if else word == "band"
+	; band
 	mov rax, qword [rbp-21]
 	movzx rsi, byte [rbp-13]
 	strcmp_const "band"
 	call strcmp
-	;if true
 	cmp rax, 1
 	je band_my
 
-	;if else word == "swap"
+	; swap
 	mov rax, qword [rbp-21]
 	movzx rsi, byte [rbp-13]
 	strcmp_const "swap"
 	call strcmp
-	;if true
 	cmp rax, 1
 	je swap_my
 
-	;if else word == "over"
+	; over
 	mov rax, qword [rbp-21]
 	movzx rsi, byte [rbp-13]
 	strcmp_const "over"
 	call strcmp
-	;if true
 	cmp rax, 1
 	je over_my
 
@@ -1342,15 +1290,6 @@ new_line:
 	jmp go_for_line
 
 go_for_line_loop:
-	;if word == //
-	mov rax, qword [rbp-21]
-	movzx rsi, byte [rbp-13]
-	strcmp_const "//"
-	call strcmp
-	;if true
-	cmp rax, 1
-	je comment_my
-
 	mov rax, qword [rbp-8]
 
 	;if its \n
@@ -1365,10 +1304,6 @@ go_for_line_loop:
 	cmp byte [rax], 9
 	je do_command
 
-	;next
-	jmp go_for_line_loop_cont
-
-go_for_line_loop_cont:
 	;src++ src_len-- word_len++
 	inc qword [rbp-8]
 	dec dword [rbp-12]
@@ -1404,21 +1339,21 @@ src file "src.sb"
 src_len = $ - src
 
 ;my language variables
-mlv rb 800
+mlv rb 10000
 mlv_end:
 
-;100 because its 100 bytes, 1 byte = 1 flag
-if_stack db 100 dup (0)
+;if stack
+if_stack rb 10000
 if_stack_end:
 
-;its char **, 
-while_stack rq 800
+;while stack
+while_stack rq 10000
 while_stack_end:
 
-while_stack_len rd 400
+while_stack_len rd 10000
 while_stack_len_end:
 
 ;memory for user
-mfu rb 800
+mfu rb 10000
 
 newline_character db 10

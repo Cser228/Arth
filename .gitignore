@@ -1,4 +1,6 @@
 main
+main_save.asm
+src_save.sb
 test
 test.asm
 test.o
