@@ -140,7 +140,7 @@ make main
 
 ### Arithmetic & Output
 
-```
+```pascal
 10 20 + dump    // 30
 50 8 - dump     // 42
 100 dup dump    // 100
@@ -149,7 +149,7 @@ make main
 
 ### Conditionals
 
-```
+```pascal
 10 5 > if
   1 dump        // prints 1 (true)
 else
@@ -159,7 +159,7 @@ end
 
 ### Countdown Loop
 
-```
+```pascal
 10 0 while 2dup > do
   dup dump
   1 +
@@ -170,7 +170,7 @@ drop drop
 
 ### Comparisons
 
-```
+```pascal
 5 5 = dump      // 1 (equal)
 5 3 != dump     // 1 (not equal)
 10 5 >= dump    // 1 (greater or equal)
@@ -179,14 +179,14 @@ drop drop
 
 ### Memory
 
-```
+```pascal
 mem 1 .         //store 1 into the memory
 mem , dump      //read from memory one byte
 ```
 
 ### System
 
-```
+```pascal
 1 //1 arg
 2 //2 arg
 3 //n arg
@@ -197,7 +197,7 @@ syscall
 
 ### Bits Operations
 
-```
+```pascal
 4 1 shl //4 << 1
 //4 = 0b00000100
 //4 << 1 = 0b00001000
@@ -212,7 +212,7 @@ end
 
 ### Stack Operations
 
-```
+```pascal
 4 1 swap dump dump //print: 1 4
 5 10 over dump dump dump //print: 5 10 5
 1 "Hello World!" 3 1 syscall //print: Hello World!
