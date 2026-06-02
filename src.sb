@@ -1,0 +1,70 @@
+//mem
+//0-29     board
+//30 \n
+//31 *
+//32 ' '
+
+//inic variables
+mem 30 + 10 .
+mem 31 + 42 .
+mem 32 + 32 .
+
+//board[28] = 1
+mem 28 + 
+1 
+.
+
+0 while dup 28 < do
+	0 while dup 30 < do
+		dup mem + , if
+			//print *
+			1
+			mem 31 +
+			1
+			3
+			1
+			syscall
+		else
+			//print ' '
+			1
+			mem 32 +
+			1
+			3
+			1
+			syscall
+		end
+
+		1 +
+	end
+	drop
+
+	//print \n
+	1
+	mem 30 +
+	1
+	3
+	1
+	syscall
+
+	//pattern = (board[0] << 1) | board[1];
+	mem ,
+	1 shl
+	mem 1 + , bor
+
+	1 while dup 29 < do
+		//pattern = ((pattern << 1) & 7) | board[j + 1];
+		swap 1 shl 7 band
+		over 1 + mem + , bor
+
+		//board[j] = (110 >> pattern) & 1;
+		2dup 110 swap shr 1 band
+		swap mem + swap .
+		swap
+
+		1 +
+	end
+	drop drop
+
+	1 +
+end
+drop

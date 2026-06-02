@@ -975,6 +975,50 @@ band_my:
 
 	jmp command_finish
 
+swap_my:
+	;[1, 2] [2, 1]
+	;rdi = 2
+	;rax = 1
+	;pop mlv
+	mov rdi, [r12]
+	add r12, 8
+
+	;pop mlv
+	mov rax, [r12]
+
+	;push mlv
+	mov [r12], rdi
+
+	;push mlv
+	sub r12, 8
+	mov [r12], rax
+
+	jmp command_finish
+
+over_my:
+	;[1, 2] [1, 2, 1]
+	;rax = 2
+	;rdi = 1
+	;pop mlv
+	mov rax, [r12]
+	add r12, 8
+
+	;pop mlv
+	mov rdi, [r12]
+
+	;push mlv
+	mov [r12], rdi
+	
+	;push mlv
+	sub r12, 8
+	mov [r12], rax
+
+	;push mlv
+	sub r12, 8
+	mov [r12], rdi
+
+	jmp command_finish
+
 do_command:
 	;if word_len == 0
 	cmp byte [rbp-13], 0
@@ -1232,6 +1276,24 @@ do_command:
 	;if true
 	cmp rax, 1
 	je band_my
+
+	;if else word == "swap"
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "swap"
+	call strcmp
+	;if true
+	cmp rax, 1
+	je swap_my
+
+	;if else word == "over"
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "over"
+	call strcmp
+	;if true
+	cmp rax, 1
+	je over_my
 
 	jmp command_finish
 

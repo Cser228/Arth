@@ -68,6 +68,8 @@ make main
 | `dup` | Duplicate the top of the stack | `5 dup` → stack: `[5, 5]` |
 | `2dup` | Duplicate two numbers of the top of stack | `10 0 2dup` → stack: `[10, 0, 10, 0]` |
 | `drop` | Pop last number in the stack | `10 10 drop` → stack: `[10]` |
+| `swap` | Swap two near numbers in the stack | `10 5 swap` → stack: `[5, 10]` |
+| `over` | Copy second number of top in the stack | `10 5 over` → stack: `[10, 5, 10]` |
 
 ### Bits Operations
 
@@ -75,7 +77,7 @@ make main
 |--------|-------------|---------|
 | `shr` | Shifts all bytes in first arg by second arg right | `4 1 shr` → stack: `[2]` |
 | `shl` | Shifts all bytes in first arg by second arg left | `1 1 shr` → stack: `[2]` |
-| `bor` | Compare each bytes in first arg by or by each bytes in second arg | '1 2 bor' → stack: `[3]` |
+| `bor` | Compare each bytes in first arg by or by each bytes in second arg | `1 2 bor` → stack: `[3]` |
 | `band` | Compare each bytes in first arg by and by each bytes in second arg | `1 3 band` → stack: `[1]` |
 
 ### Arithmetic
@@ -206,6 +208,14 @@ else
 	0 dump
 end
 ```
+
+### Stack Operations
+
+```
+4 1 swap dump dump //print: 1 4
+5 10 over dump dump dump //print: 5 10 5
+```
+
 ---
 
 ## 🏗️ How It Works
