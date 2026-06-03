@@ -1,12 +1,4 @@
 include "io.arth"
 
-macro MAX 10 end
-
-1 dump
-2 dump
-
-// [second first index]
-2 1
-0 while dup MAX < do
-	//
-end
+mem 123456789 .64
+mem ,64 dump

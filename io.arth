@@ -6,3 +6,52 @@ macro write
 	mem , 3 1 syscall
 	mem swap .
 end
+
+macro ,16
+	1 + 0
+	8 shl over , + swap 1 - swap
+	8 shl over , + swap drop
+end
+
+macro .16
+	2dup 255 band . 8 shr swap 1 + swap
+	2dup 255 band . 8 shr drop drop
+end
+
+macro ,32
+	3 + 0
+	8 shl over , + swap 1 - swap
+	8 shl over , + swap 1 - swap
+	8 shl over , + swap 1 - swap
+	8 shl over , + swap drop
+end
+
+macro .32
+	2dup 255 band . 8 shr swap 1 + swap
+	2dup 255 band . 8 shr swap 1 + swap
+	2dup 255 band . 8 shr swap 1 + swap
+	2dup 255 band . 8 shr drop drop
+end
+
+macro ,64
+	7 + 0
+	8 shl over , + swap 1 - swap
+	8 shl over , + swap 1 - swap
+	8 shl over , + swap 1 - swap
+	8 shl over , + swap 1 - swap
+	8 shl over , + swap 1 - swap
+	8 shl over , + swap 1 - swap
+	8 shl over , + swap 1 - swap
+	8 shl over , + swap drop
+end
+
+macro .64
+	2dup 255 band . 8 shr swap 1 + swap
+	2dup 255 band . 8 shr swap 1 + swap
+	2dup 255 band . 8 shr swap 1 + swap
+	2dup 255 band . 8 shr swap 1 + swap
+	2dup 255 band . 8 shr swap 1 + swap
+	2dup 255 band . 8 shr swap 1 + swap
+	2dup 255 band . 8 shr swap 1 + swap
+	2dup 255 band . 8 shr drop drop
+end
