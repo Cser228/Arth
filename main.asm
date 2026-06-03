@@ -1611,6 +1611,61 @@ push_char_my:
 	
 	jmp command_finish
 
+or_my:
+	;pop mlv
+	mov rax, [r12]
+	add r12, 8
+
+	;pop mlv
+	mov rdi, [r12]
+	add r12, 8
+
+	;or
+	cmp rax, 1
+	je .true
+
+	cmp rdi, 1
+	je .true
+
+	;push mlv
+	sub r12, 8
+	mov [r12], 0
+
+	jmp command_finish
+
+.true
+	;push mlv
+	sub r12, 8
+	mov [r12], 1
+
+	jmp command_finish
+
+and_my:
+	;pop mlv
+	mov rax, [r12]
+	add r12, 8
+
+	;pop mlv
+	mov rdi, [r12]
+	add r12, 8
+
+	;and
+	cmp rax, rdi
+	je .true
+
+	;push mlv
+	sub r12, 8
+	mov [r12], 0
+
+	jmp command_finish
+
+.true
+	;push mlv
+	sub r12, 8
+	mov [r12], 1
+
+	jmp command_finish
+
 do_command:
 	;DEBUG
 	;mov rsi, qword [rbp-21]
@@ -1889,6 +1944,22 @@ do_command:
 	call strcmp
 	cmp rax, 1
 	je band_my
+
+	; or
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "or"
+	call strcmp
+	cmp rax, 1
+	je or_my
+
+	; and
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "and"
+	call strcmp
+	cmp rax, 1
+	je and_my
 
 	; swap
 	mov rax, qword [rbp-21]
