@@ -71,7 +71,7 @@ Run the code!
 | Syntax | Description | Example |
 |--------|-------------|---------|
 | `shr` | Shifts all bytes in first arg by second arg right | `4 1 shr` → stack: `[2]` |
-| `shl` | Shifts all bytes in first arg by second arg left | `1 1 shr` → stack: `[2]` |
+| `shl` | Shifts all bytes in first arg by second arg left | `1 1 shl` → stack: `[2]` |
 | `bor` | Compare each bytes in first arg by or by each bytes in second arg | `1 2 bor` → stack: `[3]` |
 | `band` | Compare each bytes in first arg by and by each bytes in second arg | `1 3 band` → stack: `[1]` |
 
@@ -82,6 +82,7 @@ Run the code!
 | `+` | Pop two numbers, push their sum | `3 5 +` → stack: `[8]` |
 | `-` | Pop two numbers, push the difference (in written order) | `10 3 -` → stack: `[7]` |
 | `*` | Pop two numbers, push their multiply | `3 2 *` → stack: `[6]` |
+| `mod` | Pop two numbers, push their remainder | `3 2 mod` → stacl: `[1]` |
 
 ### Comparison Operators
 
