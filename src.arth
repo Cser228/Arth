@@ -1,17 +1,12 @@
 include "io.arth"
 
-macro NATURAL_MAX 1000 end
+macro MAX 10 end
 
-0
-3 while dup NATURAL_MAX < do
-	dup  3 mod 0 =
-	over 5 mod 0 =
-	or if
-		swap over + swap
-	end
+1 dump
+2 dump
 
-	1 +
+// [second first index]
+2 1
+0 while dup MAX < do
+	//
 end
-drop
-
-dump

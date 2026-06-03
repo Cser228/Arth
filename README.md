@@ -65,6 +65,8 @@ Run the code!
 | `drop` | Pop last number in the stack | `10 10 drop` → stack: `[10]` |
 | `swap` | Swap two near numbers in the stack | `10 5 swap` → stack: `[5, 10]` |
 | `over` | Copy second number of top in the stack | `10 5 over` → stack: `[10, 5, 10]` |
+| `pick` | Copy the first number of the stack on the top of the stack | `1 2 3 pick` → stack: `[1, 2, 3, 1]` |
+| `rot` | Shift all the numbers left | `1 2 3 rot` → stack: `[2, 3, 1]` |
 
 ### Bits Operations
 
@@ -150,13 +152,15 @@ Run the code!
 ### Arithmetic & Output
 
 ```pascal
-10 20 + dump    // 30
-50 8 - dump     // 42
-100 dup dump    // 100
-100 - dump      // 0
-3 2 * dump      // 6
-3 2 mod dump    // 1
-1 0 or dump     // 1
+10 20 + dump                      // 30
+50 8 - dump                       // 42
+100 dup dump                      // 100
+100 - dump                        // 0
+3 2 * dump                        // 6
+3 2 mod dump                      // 1
+1 0 or dump                       // 1
+1 2 3 pick dump dump dump dump    // 1 3 2 1 (because pop its reverse, in the stack was: [1, 2, 3, 1])
+1 2 3 rot dump dump dump          // 1 3 2 (because pop its reverse, in the stack was: [2, 3, 1])
 ```
 
 ### Conditionals

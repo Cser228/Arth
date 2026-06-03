@@ -1667,6 +1667,74 @@ and_my:
 
     jmp command_finish
 
+pick_my:
+	;get first value of mlv
+	mov rax, r12
+	jmp .condition
+
+.condition:
+	;if copy mlv != mlv_end
+	cmp rax, mlv_end
+	jne .while
+
+	sub rax, 8
+	mov rdi, qword [rax]
+	sub r12, 8
+	mov qword [r12], rdi
+
+	jmp command_finish
+
+.while:
+	add rax, 8
+
+	jmp .condition
+
+rot_my:
+	;copy mlv stack
+	mov rax, r12
+
+	jmp .c_get
+
+.c_get:
+	;if rax+8 != mlv_end
+	mov rdi, rax
+	add rdi, 8
+	cmp rdi, mlv_end
+	jne .w_get
+
+	;save rax[0]
+	mov r8, qword [rax]
+
+	jmp .condition
+
+;r12 [1, 2, 3]
+;rax [2, 3, 1]
+;           ^
+.condition:
+	;if rax != r12
+	cmp rax, r12
+	jne .while
+
+	mov qword [rax], r8
+
+	mov r12, rax
+
+	jmp command_finish
+
+.while:
+	mov rdi, rax
+	sub rdi, 8
+	mov rsi, qword [rdi]
+	mov qword [rax], rsi
+	sub rax, 8
+
+	jmp .condition
+
+.w_get:
+	add rax, 8
+
+	jmp .c_get
+
 do_command:
 	;DEBUG
 	;mov rsi, qword [rbp-21]
@@ -2001,6 +2069,22 @@ do_command:
 	call strcmp
 	cmp rax, 1
 	je mod_my
+
+	; pick
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "pick"
+	call strcmp
+	cmp rax, 1
+	je pick_my
+
+	; rot
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "rot"
+	call strcmp
+	cmp rax, 1
+	je rot_my
 
 	;check if there is in macro names stack
 	mov r8, qword [rbp-56]
