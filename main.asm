@@ -1774,6 +1774,16 @@ div_my:
 
 	jmp command_finish
 
+free_string_my:
+	;pop mlv
+	mov rax, [r12]
+	add r12, 8
+
+	;mfus - len
+	sub r13, rax
+
+	jmp command_finish
+
 do_command:
 	;DEBUG
 	;mov rsi, qword [rbp-21]
@@ -2140,6 +2150,14 @@ do_command:
 	call strcmp
 	cmp rax, 1
 	je break_my
+
+	; free_string
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "free_string"
+	call strcmp
+	cmp rax, 1
+	je free_string_my
 
 	;check if there is in macro names stack
 	mov r8, qword [rbp-56]

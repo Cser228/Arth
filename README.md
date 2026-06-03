@@ -124,6 +124,7 @@ Run the code!
 | `mem` | Push the address of the memory buffer for reading/writing |
 | `.` | Store the given byte at the given address |
 | `,` | Load a byte from the given address |
+| `free_string` | Strings pushes like this `"Hello"` storage in the other buffer of memory and so you need free memory you allocated |
 
 ### Comments
 
@@ -258,8 +259,7 @@ end
 ```pascal
 include "io.arth"
 
-"Hello World!\n" write
-//in io.arth can be macro write
+"Hello World!\n" writef    //writef its write and free_string automaticly
 ```
 
 ---

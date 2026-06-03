@@ -7,6 +7,11 @@ macro write
 	mem swap .
 end
 
+macro writef
+	swap over write
+	free_string
+end
+
 macro ,16
 	1 + 0
 	8 shl over , + swap 1 - swap
