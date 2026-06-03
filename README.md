@@ -59,6 +59,7 @@ Run the code!
 |--------|-------------|---------|
 | `<number>` | Push a number onto the stack | `42` → stack: `[42]` |
 | `<string>` | Push a address to memory, where allocated new string and a len of string onto the stack | `"hello"` → stack: `[4207151, 5]` |
+| `<char>` | Push a ascii code of char in the `''` | `'\n'` → stack: `[10]` |
 | `dup` | Duplicate the top of the stack | `5 dup` → stack: `[5, 5]` |
 | `2dup` | Duplicate two numbers of the top of stack | `10 0 2dup` → stack: `[10, 0, 10, 0]` |
 | `drop` | Pop last number in the stack | `10 10 drop` → stack: `[10]` |
@@ -220,9 +221,10 @@ end
 ### Stack Operations
 
 ```pascal
-4 1 swap dump dump //print: 1 4
-5 10 over dump dump dump //print: 5 10 5
-1 "Hello World!" 3 1 syscall //print: Hello World!
+4 1 swap dump dump             //print: 1 4
+5 10 over dump dump dump       //print: 5 10 5
+1 "Hello World!" 3 1 syscall   //print: Hello World!
+mem 'a' . 1 mem 1 3 1 syscall  //print: a
 ```
 
 ### Macros

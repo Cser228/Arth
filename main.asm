@@ -35,10 +35,10 @@ macro strcmp_const str_val {
 _start:
 	;get argc
     pop rax
-    
-    ;if argc != 2
-    cmp rax, 2
-    jne .error_file
+
+    ;if argc == 1
+    cmp rax, 1
+    je .error_file
     
     ;program name
     pop rax
@@ -115,6 +115,9 @@ _start:
 
 	;include next word my
 	mov byte [rbp-98], 0
+
+	;uint8_t now_we_are_in_the_single_quotes?
+	mov byte [rbp-99], 0
 
 	;go to while
 	jmp go_for_line
@@ -1483,12 +1486,6 @@ include_file_name:
 	pop rax
 	call free_allocated
 
-	;DEBUG
-	;mov rsi, qword [rbp-8]
-	;mov rdx, 0
-	;mov edx, dword [rbp-12]
-	;call write
-
 	jmp command_finish_save
 
 .error_file:
@@ -1533,6 +1530,53 @@ mod_my:
 	;push mlv
 	sub r12, 8
 	mov qword [r12], rcx
+
+	jmp command_finish
+
+push_char_my:
+	;remove '
+	;word++ word_len -= 2
+	inc qword [rbp-21]
+	sub byte [rbp-13], 2
+
+	;if word == \n
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "\n"
+	call strcmp
+	cmp rax, 1
+	je .n
+
+	;if word == \t
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "\t"
+	call strcmp
+	cmp rax, 1
+	je .t
+
+	;convert simvol onto int
+	mov rdi, qword [rbp-21]
+	mov rax, 0
+	mov al, byte [rdi]
+
+	;push mlv
+	sub r12, 8
+	mov [r12], rax
+
+	jmp command_finish
+
+.n:
+	;push mlv
+	sub r12, 8
+	mov qword [r12], 10
+
+	jmp command_finish
+
+.t:
+	;push mlv
+	sub r12, 8
+	mov qword [r12], 9
 
 	jmp command_finish
 
@@ -1616,6 +1660,11 @@ do_command:
 	mov rax, qword [rbp-21]
 	cmp byte [rax], 34
 	je push_str_my
+
+	;if *word == '
+	mov rax, qword [rbp-21]
+	cmp byte [rax], 39
+	je push_char_my
 
 	; dump
 	mov rax, qword [rbp-21]
@@ -2023,6 +2072,10 @@ its_space:
 	cmp al, 1
 	je .ignore
 
+	mov al, byte [rbp-99]
+	cmp al, 1
+	je .ignore
+
 	jmp do_command
 
 .ignore:
@@ -2030,6 +2083,32 @@ its_space:
 	inc qword [rbp-8]
 	dec dword [rbp-12]
 	inc byte [rbp-13]
+
+its_single_quotes:
+	;set we are in single quotes !
+	mov al, byte [rbp-99]
+	
+	cmp al, 0
+	je .true
+
+	mov byte [rbp-99], 0
+
+	;src++ src_len-- word_len++
+	inc qword [rbp-8]
+	dec dword [rbp-12]
+	inc byte [rbp-13]
+
+	jmp do_command
+
+.true:
+	mov byte [rbp-99], 1
+
+	;src++ src_len-- word_len++
+	inc qword [rbp-8]
+	dec dword [rbp-12]
+	inc byte [rbp-13]
+
+	jmp go_for_line
 
 go_for_line_loop:
 	;if word == //
@@ -2046,6 +2125,10 @@ go_for_line_loop:
 	;if its "
 	cmp byte [rax], 34
 	je its_quotes
+
+	;if its '
+	cmp byte [rax], 39
+	je its_single_quotes
 
 	;if its \n
 	cmp byte [rax], 10
