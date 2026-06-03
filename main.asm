@@ -988,6 +988,13 @@ mem_my:
 
 	jmp command_finish
 
+mems_my:
+	mov rax, mfus
+	sub r12, 8
+	mov [r12], rax
+
+	jmp command_finish
+
 load_my:
 	;pop last mlv
 	mov rax, [r12]
@@ -2006,6 +2013,14 @@ do_command:
 	call strcmp
 	cmp rax, 1
 	je mem_my
+
+	; mems
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "mems"
+	call strcmp
+	cmp rax, 1
+	je mems_my
 
 	; .
 	mov rax, qword [rbp-21]
