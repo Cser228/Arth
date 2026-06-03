@@ -38,7 +38,7 @@ _start:
     
     ;if argc != 2
     cmp rax, 2
-    jne exit_with_reason
+    jne .error_file
     
     ;program name
     pop rax
@@ -46,7 +46,11 @@ _start:
     ;file name
     pop rax
 
-	call read_file
+	call read_file_C
+
+	;if rax == 0
+	cmp rax, 0
+	je .error_file
 
 	;inic stack
 	push rbp
@@ -67,12 +71,15 @@ _start:
 	mov qword [rbp-8], rax
 	;uint32_t b = src_len
 	mov dword [rbp-12], edi
+
 	;uint8_t word_len = 0
 	mov byte [rbp-13], 0
-	;char *a = src // it will point on the first character after space
+	;char *word = src // it will point on the first character after space
 	mov qword [rbp-21], rax
+
 	;uint16_t a = 1 // now we on line
 	mov word [rbp-23], 1
+
 	;if stack
 	;0 = nothing = free
 	;1 = for if return true
@@ -82,10 +89,12 @@ _start:
 	;5 = for macro inic
 	;6 = for macro do
 	mov qword [rbp-31], if_stack_end
+
 	;while stack
 	mov qword [rbp-39], while_stack_end
 	;while stack for len
 	mov qword [rbp-47], while_stack_len_end
+
 	;uint8_t now_we_are_in_the_quotes?
 	mov byte [rbp-48], 0
 
@@ -104,69 +113,182 @@ _start:
 	;macro implemantation len stack
 	mov qword [rbp-97], mil_end
 
+	;include next word my
+	mov byte [rbp-98], 0
+
 	;go to while
 	jmp go_for_line
 
-;char *read_file(const char *file_name);
+.error_file:
+	strcmp_const "ERROR: amount of arguments don't equal to 2. Example: ./arth src.arth"
+	mov rax, rdi
+	mov rdi, rdx
+	
+	jmp exit_with_reason
+
+;char *read_file(const char *file_name, size_t name_len);
+;rax = file_name_addr
+;rdi = file_name_len
+;ret rax = file_content_addr (mmap)
+;ret rdi = file_content_len
+read_file:
+    push rbp
+    mov rbp, rsp
+    mov rcx, rdi
+    mov rsi, rax
+    lea rdx, [rcx + 1]
+    add rdx, 15
+    and rdx, -16
+    sub rsp, rdx
+    mov rdi, rsp
+    push rdi
+    rep movsb
+    mov byte [rdi], 0
+    pop rax
+    call read_file_C
+    leave
+    ret
+
+;char *read_file_C(const char *file_name);
 ;rax = file_name
 ;ret src = rax
 ;ret src_len = rdi
-read_file:
-	mov rdi, rax
-	
-    ;open file
+read_file_C:
+    push rbp
+    mov rbp, rsp
+    push r12
+    push r13
+    push r14
+    mov rdi, rax
+    xor rsi, rsi
     mov rax, 2
-    mov rsi, 0
-    mov rdx, 0
     syscall
-    cmp rax, 0
-    jl exit_with_reason
-    
-    ;save fd
-    mov r15, rax
-    
-    ;get size of file
-    mov rax, 8
-    mov rdi, r15
-    mov rsi, 0
+    test rax, rax
+    js .error
+    mov r12, rax
+    mov rdi, r12
+    xor rsi, rsi
     mov rdx, 2
-    syscall
-    mov r14, rax ; r14 = size
-    
-    ;back to the start of file
     mov rax, 8
-    mov rdi, r15
-    mov rsi, 0
-    mov rdx, 0
     syscall
-    
-	;allocate memory using MMAP (Senior way)
-    ;rax = 9 (mmap), rdi = 0, rsi = len, rdx = prot, r10 = flags, r8 = fd, r9 = offset
-    mov rax, 9
+    mov r13, rax
+    mov rdi, r12
+    xor rsi, rsi
+    xor rdx, rdx
+    mov rax, 8
+    syscall
+    mov rsi, r13
     xor rdi, rdi
-    mov rsi, r14
-    mov rdx, 3 ; PROT_READ | PROT_WRITE
-    mov r10, 34 ; MAP_PRIVATE | MAP_ANONYMOUS
+    mov rdx, 3
+    mov r10, 34
     mov r8, -1
     xor r9, r9
+    mov rax, 9
     syscall
-    mov r13, rax ; r13 = allocated address
-    
-    ;read file into allocated memory
-    mov rax, 0
-    mov rdi, r15
-    mov rsi, r13
-    mov rdx, r14
+    cmp rax, -1
+    je .err_close
+    mov r14, rax
+    mov rdi, r12
+    mov rsi, r14
+    mov rdx, r13
+    xor rax, rax
     syscall
-    
-    ;close file
+    mov rdi, r12
     mov rax, 3
-    mov rdi, r15
+    syscall
+    mov rax, r14
+    mov rdi, r13
+    jmp .exit
+
+.err_close:
+    mov rdi, r12
+    mov rax, 3
     syscall
 
-	mov rax, r13
-	mov rdi, r14
-	ret
+.error:
+    xor rax, rax
+    xor rdi, rdi
+
+.exit:
+    pop r14
+    pop r13
+    pop r12
+    leave
+    ret
+
+;char *sum_two_strings(char *a, char *b, size_t a_len, size_t b_len)
+;a = rax
+;a_len = rdi
+;b = rsi
+;b_len = rdx
+;ret rax = string
+;ret rdi = len
+sum_two_strings:
+    push rbp
+    mov rbp, rsp
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
+    mov rbx, rax            
+    mov r12, rdi            
+    mov r13, rsi            
+    mov r14, rdx            
+    lea r15, [r12 + r14]    
+    mov rsi, r15            
+    xor rdi, rdi            
+    mov rdx, 3              
+    mov r10, 34             
+    mov r8, -1
+    xor r9, r9
+    mov rax, 9              
+    syscall
+    cmp rax, -1
+    je .error
+    mov rdi, rax            
+    mov rsi, rbx            
+    mov rcx, r12            
+    push rdi                
+    rep movsb               
+    mov rsi, r13            
+    mov rcx, r14            
+    rep movsb
+    pop rax                 
+    mov rdi, r15            
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    leave
+    ret
+
+.error:
+    xor rax, rax
+    xor rdi, rdi
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    leave
+    ret
+
+;void free_allocated(char *a, size_t a_len)
+;rax = a
+;rdi = a_len
+free_allocated:
+    push rbp
+    mov rbp, rsp
+
+    mov rsi, rdi
+    mov rdi, rax
+    mov rax, 11
+    syscall
+
+    leave
+    ret
 
 write:
 	;print
@@ -1285,6 +1407,82 @@ macro_save_name:
 
 	jmp command_finish
 
+include_my:
+	;set include next word my 1
+	mov byte [rbp-98], 1
+
+	jmp command_finish
+
+include_file_name:
+	;set include next word my 0
+	mov byte [rbp-98], 0
+
+	;if word[] != "
+	mov rax, qword [rbp-21]
+	cmp byte [rax], 34
+	jne command_finish
+
+	;word++ word_len--
+	inc qword [rbp-21]
+	dec byte [rbp-13]
+
+	mov rdi, 0
+
+	;read_file
+	mov rax, qword [rbp-21]
+	mov dil, byte [rbp-13]
+	call read_file
+
+	mov r8, rax
+	mov r9, rdi
+
+	;if rax == 0
+	cmp rax, 0
+	je .error_file
+
+	push rax
+	push rdi
+	mov rax, qword [rbp-8]
+	mov rdi, 0
+	mov edi, dword [rbp-12]
+	push rax
+	push rdi
+
+	mov rax, r8
+	mov rdi, r9
+	mov rsi, qword [rbp-8]
+	mov rdx, 0
+	mov edx, dword [rbp-12]
+	call sum_two_strings
+
+	;src = string
+	;src_len = len
+	mov qword [rbp-8], rax
+	mov dword [rbp-12], edi
+
+	pop rdi
+	pop rax
+	call free_allocated
+
+	pop rdi
+	pop rax
+	call free_allocated
+
+	;DEBUG
+	;mov rsi, qword [rbp-8]
+	;mov rdx, 0
+	;mov edx, dword [rbp-12]
+	;call write
+
+	jmp command_finish_save
+
+.error_file:
+	strcmp_const "ERROR `include` operation: this file don't exists"
+	mov rax, rdi
+	mov rdi, rdx
+	
+	jmp exit_with_reason
+
 do_command:
 	;if word_len == 0
 	cmp byte [rbp-13], 0
@@ -1301,6 +1499,10 @@ do_command:
 	;if macro next word my == 1
 	cmp byte [rbp-89], 1
 	je macro_save_name
+
+	;if include next word my == 1
+	cmp byte [rbp-98], 1
+	je include_file_name
 
 	;if if stack == 5
 	mov rax, qword [rbp-31]
@@ -1554,6 +1756,14 @@ do_command:
 	cmp rax, 1
 	je macro_my
 
+	; include
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "include"
+	call strcmp
+	cmp rax, 1
+	je include_my
+
 	;check if there is in macro names stack
 	mov r8, qword [rbp-56]
 	mov r9, qword [rbp-64]
@@ -1642,6 +1852,20 @@ command_finish:
 	;src_len--
 	inc qword [rbp-8]
 	dec dword [rbp-12]
+
+	;word = src
+	mov rax, qword [rbp-8]
+	mov qword [rbp-21], rax
+
+	;word_len = 0
+	mov byte [rbp-13], 0
+
+	jmp go_for_line
+
+command_finish_save:
+	;if src_len == 0
+	cmp dword [rbp-12], 0
+	je exit
 
 	;word = src
 	mov rax, qword [rbp-8]
@@ -1789,8 +2013,13 @@ exit:
 
 exit_with_reason:
 	;write error
-	mov rsi, error
-	mov rdx, error_len
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	;write \n
+	mov rsi, newline_character
+	mov rdx, 1
 	call write
 
 	;exit
@@ -1860,5 +2089,3 @@ mbl_end:
 ;LANGUAGE VARIABLES
 
 newline_character db 10
-error db "ERROR: amount of arguments don't equal to 2. Example: ./arth src.arth", 10
-error_len = $ - error

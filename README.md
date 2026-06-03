@@ -36,9 +36,9 @@ Create a file with any name and `.arth` extension:
 
 ```pascal
 // hello.arth
-35 34 + dump        // prints 69
-10 20 + dup dump    // prints 30
-5 - dump            // prints 25
+include "io.arth"
+
+"Hello World!\n" write
 ```
 
 ### Run code
@@ -46,7 +46,7 @@ Create a file with any name and `.arth` extension:
 Run the code!
 
 ```bash
-./main file_name.arth
+./main hello.arth
 ```
 
 ---
