@@ -99,7 +99,8 @@ Run the code!
 
 | Syntax | Description | Example |
 |--------|-------------|---------|
-| `dump` | Pop and print the top value | `42 dump` → prints `42` |
+| `dump` | Pop and print the top value of the stack and print \n | `42 dump` → prints `42\n` |
+| `print` | Pop and print the top value of the stack | `42 print` → prints `42` |
 
 ### Control Flow
 
@@ -150,6 +151,7 @@ Run the code!
 100 dup dump    // 100
 100 - dump      // 0
 3 2 * dump      // 6
+3 2 mod dump    // 1
 ```
 
 ### Conditionals

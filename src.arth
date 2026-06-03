@@ -1,3 +1,16 @@
 include "io.arth"
 
-"Hello World!\n" write
+1 while dup 10 <= do
+	dup 2 mod if
+		//nechet
+		dup print
+		": nechet\n" write
+	else
+		//chet
+		dup print
+		": chet\n" write
+	end
+
+	1 +
+end
+drop

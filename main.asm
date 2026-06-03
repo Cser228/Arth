@@ -453,6 +453,21 @@ dump_my:
 
 	jmp command_finish
 
+print_my:
+	;get from my stack
+	mov rax, [r12]
+	add r12, 8
+
+	;call int_to_string
+	call int_to_string
+
+	;print value
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	jmp command_finish
+
 plus_my:
 	;get first from stack
 	mov rax, [r12]
@@ -1501,6 +1516,26 @@ multi_my:
 
 	jmp command_finish
 
+mod_my:
+	;pop mlv
+	mov rdi, [r12]
+	add r12, 8
+
+	;pop mlv
+	mov rax, [r12]
+	add r12, 8
+
+	;mod
+	xor rdx, rdx
+	idiv rdi
+	mov rcx, rdx
+
+	;push mlv
+	sub r12, 8
+	mov qword [r12], rcx
+
+	jmp command_finish
+
 do_command:
 	;if word_len == 0
 	cmp byte [rbp-13], 0
@@ -1589,6 +1624,14 @@ do_command:
 	call strcmp
 	cmp rax, 1
 	je dump_my
+
+	; print
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "print"
+	call strcmp
+	cmp rax, 1
+	je print_my
 
 	; +
 	mov rax, qword [rbp-21]
@@ -1789,6 +1832,14 @@ do_command:
 	call strcmp
 	cmp rax, 1
 	je include_my
+
+	; mod
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "mod"
+	call strcmp
+	cmp rax, 1
+	je mod_my
 
 	;check if there is in macro names stack
 	mov r8, qword [rbp-56]
