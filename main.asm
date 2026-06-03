@@ -346,9 +346,8 @@ int_to_string:
 ;len = rdi
 ;ret = rax
 its_number:
-	;inic own stack
-	push rbp
-	mov rbp, rsp
+	push r8
+	push r9
 
 	;save rax
 	mov r8, rax
@@ -356,39 +355,41 @@ its_number:
 	;save rdi
 	mov r9, rdi
 
-	jmp its_number_loop
+	jmp .loop
 
-its_number_loop:
+.loop:
 	;if len == 0
 	cmp r9, 0
-	je its_number_true
+	je .true
 
 	;if (*a >= '0' && *a <= '9')
 	cmp byte [r8], 48
-	jl its_number_false
+	jl .false
 	cmp byte [r8], 57
-	jg its_number_false
+	jg .false
 
 	;continue loop
 	inc r8
 	dec r9
 
-	jmp its_number_loop
+	jmp .loop
 
-its_number_false:
+.false:
 	;return false
 	mov rax, 0
 
 	;ret
-	pop rbp
+	pop r9
+	pop r8
 	ret
 
-its_number_true:
+.true:
 	;return true
 	mov rax, 1
 	
 	;ret
-	pop rbp
+	pop r9
+	pop r8
 	ret
 
 ;uint64_t string_to_int(char *a, uint8_t a_len)
@@ -546,28 +547,26 @@ equal_my_true:
 ;b_len = rdx
 ;ret = rax
 strcmp:
-	;inic own stack
-	push rbp
-	mov rbp, rsp
+	push r8
 
 	;if a_len != b_len
 	cmp rsi, rdx
-	jne strcmp_false
+	jne .false
 
-	jmp strcmp_loop
+	jmp .loop
 
-strcmp_loop:
+.loop:
 	;if a_len != 0 && b_len != 0
 	cmp rsi, 0
-	je strcmp_true
+	je .true
 
 	cmp rdx, 0
-	je strcmp_true
+	je .true
 
 	;if a != b
 	mov r8b, byte [rdi]
 	cmp byte [rax], r8b
-	jne strcmp_false
+	jne .false
 
 	;a++
 	;b++
@@ -578,22 +577,20 @@ strcmp_loop:
 	dec rsi
 	dec rdx
 
-	jmp strcmp_loop
+	jmp .loop
 
-strcmp_true:
+.true:
 	;ret true
 	mov rax, 1
 	
-	mov rsp, rbp
-	pop rbp
+	pop r8
 	ret
 
-strcmp_false:
+.false:
 	;ret false
 	mov rax, 0
 
-	mov rsp, rbp
-	pop rbp
+	pop r8
 	ret
 
 if_my:
@@ -1416,6 +1413,7 @@ macro_save_name:
 	;push macro implemantation len stack src_len
 	mov rax, qword [rbp-97]
 	sub rax, 8
+	mov rdi, 0
 	mov edi, dword [rbp-12]
 	mov qword [rax], rdi
 	mov qword [rbp-97], rax
@@ -2005,7 +2003,6 @@ checking_macro_names_condition:
 	add rax, rdi
 
 	;set src_len = int
-	mov rax, qword [rbp-97]
 	mov rdi, qword [rax]
 	mov dword [rbp-12], edi
 
