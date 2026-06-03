@@ -94,6 +94,8 @@ Run the code!
 | `<` | Less than | `3 5 <` → stack: `[1]` |
 | `>=` | Greater or equal | `5 5 >=` → stack: `[1]` |
 | `<=` | Less or equal | `3 5 <=` → stack: `[1]` |
+| `or` | Or | `1 0 or` → stack: `[1]` |
+| `and` | And | `1 0 or` → stack: `[0]` |
 
 > All comparison operators pop two values and push `1` (true) or `0` (false).
 
@@ -154,6 +156,7 @@ Run the code!
 100 - dump      // 0
 3 2 * dump      // 6
 3 2 mod dump    // 1
+1 0 or dump     // 1
 ```
 
 ### Conditionals

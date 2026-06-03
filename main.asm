@@ -1613,58 +1613,59 @@ push_char_my:
 
 or_my:
 	;pop mlv
-	mov rax, [r12]
-	add r12, 8
+    mov rax, [r12]
+    add r12, 8
 
 	;pop mlv
-	mov rdi, [r12]
-	add r12, 8
+    mov rdi, [r12]
+    add r12, 8
 
 	;or
-	cmp rax, 1
-	je .true
+    cmp rax, 0
+    jne .true
+    cmp rdi, 0
+    jne .true
 
-	cmp rdi, 1
-	je .true
+	;push false
+    sub r12, 8
+    mov qword [r12], 0
 
-	;push mlv
-	sub r12, 8
-	mov [r12], 0
+    jmp command_finish
 
-	jmp command_finish
+.true:
+	;push true
+    sub r12, 8
+    mov qword [r12], 1
 
-.true
-	;push mlv
-	sub r12, 8
-	mov [r12], 1
-
-	jmp command_finish
+    jmp command_finish
 
 and_my:
 	;pop mlv
-	mov rax, [r12]
-	add r12, 8
+    mov rax, [r12]
+    add r12, 8
 
 	;pop mlv
-	mov rdi, [r12]
-	add r12, 8
+    mov rdi, [r12]
+    add r12, 8
 
 	;and
-	cmp rax, rdi
-	je .true
+    cmp rax, 0
+    je .false
+    cmp rdi, 0
+    je .false
 
 	;push mlv
-	sub r12, 8
-	mov [r12], 0
+    sub r12, 8
+    mov qword [r12], 1
 
-	jmp command_finish
+    jmp command_finish
 
-.true
+.false:
 	;push mlv
-	sub r12, 8
-	mov [r12], 1
+    sub r12, 8
+    mov qword [r12], 0
 
-	jmp command_finish
+    jmp command_finish
 
 do_command:
 	;DEBUG
