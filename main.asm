@@ -1483,6 +1483,24 @@ include_file_name:
 	
 	jmp exit_with_reason
 
+multi_my:
+	;pop mlv
+	mov rax, [r12]
+	add r12, 8
+
+	;pop mlv
+	mov rdi, [r12]
+	add r12, 8
+
+	;multi
+	imul rax, rdi
+
+	;push mlv
+	sub r12, 8
+	mov [r12], rax
+
+	jmp command_finish
+
 do_command:
 	;if word_len == 0
 	cmp byte [rbp-13], 0
@@ -1587,6 +1605,14 @@ do_command:
 	call strcmp
 	cmp rax, 1
 	je minus_my
+
+	; *
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "*"
+	call strcmp
+	cmp rax, 1
+	je multi_my
 
 	; =
 	mov rax, qword [rbp-21]

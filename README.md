@@ -80,6 +80,7 @@ Run the code!
 |--------|-------------|---------|
 | `+` | Pop two numbers, push their sum | `3 5 +` → stack: `[8]` |
 | `-` | Pop two numbers, push the difference (in written order) | `10 3 -` → stack: `[7]` |
+| `*` | Pop two numbers, push their multiply | `3 2 *` → stack: `[6]` |
 
 ### Comparison Operators
 
@@ -148,6 +149,7 @@ Run the code!
 50 8 - dump     // 42
 100 dup dump    // 100
 100 - dump      // 0
+3 2 * dump      // 6
 ```
 
 ### Conditionals
