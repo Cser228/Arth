@@ -2373,6 +2373,8 @@ its_space:
 	dec dword [rbp-12]
 	inc byte [rbp-13]
 
+	jmp go_for_line
+
 its_single_quotes:
 	;if we are in the quotes
 	mov al, byte [rbp-48]
