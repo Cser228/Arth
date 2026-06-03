@@ -1735,6 +1735,45 @@ rot_my:
 
 	jmp .c_get
 
+break_my:
+    mov rax, qword [rbp-31]
+
+	jmp .condition
+
+.condition:
+    cmp rax, if_stack_end
+    je command_finish
+
+    mov rdi, qword [rax]
+    cmp rdi, 4
+    je .found
+
+    add rax, 8
+    jmp .condition
+
+.found:
+    mov qword [rax], 3
+    jmp command_finish
+
+div_my:
+	;pop mlv
+	mov rdi, [r12]
+	add r12, 8
+	
+	;pop mlv
+	mov rax, [r12]
+	add r12, 8
+
+	;div
+	cqo
+	idiv rdi
+
+	;push mlv
+	sub r12, 8
+	mov qword [r12], rax
+
+	jmp command_finish
+
 do_command:
 	;DEBUG
 	;mov rsi, qword [rbp-21]
@@ -1869,6 +1908,14 @@ do_command:
 	call strcmp
 	cmp rax, 1
 	je multi_my
+
+	; /
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "/"
+	call strcmp
+	cmp rax, 1
+	je div_my
 
 	; =
 	mov rax, qword [rbp-21]
@@ -2085,6 +2132,14 @@ do_command:
 	call strcmp
 	cmp rax, 1
 	je rot_my
+
+	; break
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "break"
+	call strcmp
+	cmp rax, 1
+	je break_my
 
 	;check if there is in macro names stack
 	mov r8, qword [rbp-56]

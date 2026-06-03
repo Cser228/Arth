@@ -84,6 +84,7 @@ Run the code!
 | `+` | Pop two numbers, push their sum | `3 5 +` → stack: `[8]` |
 | `-` | Pop two numbers, push the difference (in written order) | `10 3 -` → stack: `[7]` |
 | `*` | Pop two numbers, push their multiply | `3 2 *` → stack: `[6]` |
+| `/` | Pop two numbers, push their quotient of division | `10 2 /` → stack: `[5]` |
 | `mod` | Pop two numbers, push their remainder | `3 2 mod` → stacl: `[1]` |
 
 ### Comparison Operators
@@ -114,6 +115,7 @@ Run the code!
 |--------|-------------|
 | `if` / `else` / `end` | Conditional execution. Pops top value; runs if-block when non-zero |
 | `while` / `do` | Loop. Repeats while top of stack is non-zero |
+| `break` | Stop the while loop |
 
 ### Memory
 
@@ -157,6 +159,7 @@ Run the code!
 100 dup dump                      // 100
 100 - dump                        // 0
 3 2 * dump                        // 6
+10 2 / dump                       // 5
 3 2 mod dump                      // 1
 1 0 or dump                       // 1
 1 2 3 pick dump dump dump dump    // 1 3 2 1 (because pop its reverse, in the stack was: [1, 2, 3, 1])
