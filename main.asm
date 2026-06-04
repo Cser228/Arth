@@ -88,6 +88,7 @@ _start:
 	;4 = for while pull stack
 	;5 = for macro inic
 	;6 = for macro do
+	;7 = for macro skip
 	mov qword [rbp-31], if_stack_end
 
 	;while stack
@@ -1282,6 +1283,7 @@ push_str_my:
 	mov rax, r13
 
 	;save len
+	mov rdx, 0
 	mov dl, byte [rbp-13]
 
 	jmp .while_condition
@@ -1300,8 +1302,6 @@ push_str_my:
 	sub r12, 8
 	mov [r12], rax
 
-	inc r13
-
 	jmp command_finish
 
 .while_loop:
@@ -1313,6 +1313,7 @@ push_str_my:
 
 	;set mfus[] word[]
 	mov rdi, qword [rbp-21]
+	mov rsi, 0
 	mov sil, byte [rdi]
 	mov byte [r13], sil
 
@@ -1821,10 +1822,12 @@ do_command:
 	cmp byte [rbp-98], 1
 	je include_file_name
 
-	;if if stack == 5
+	;if if stack == 5 or 7
 	mov rax, qword [rbp-31]
 	cmp qword [rax], 5
-	je command_finish
+	je .if_stack_five
+	cmp qword [rax], 7
+	je .if_stack_five
 
 	; if
 	mov rax, qword [rbp-21]
@@ -1867,6 +1870,36 @@ do_command:
 	je command_finish
 	cmp rax, 3
 	je command_finish
+
+	jmp .normal_exec
+
+.if_stack_five:
+	; if
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "if"
+	call strcmp
+	cmp rax, 1
+	je .if_stack_five_true
+
+	; while
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "while"
+	call strcmp
+	cmp rax, 1
+	je .if_stack_five_true
+
+	jmp command_finish
+
+.if_stack_five_true:
+	;push if stack 7
+	mov rax, qword [rbp-31]
+	sub rax, 8
+	mov qword [rax], 7
+	mov qword [rbp-31], rax
+
+	jmp command_finish
 
 .normal_exec:
 	;its_number(word_now, word_len)

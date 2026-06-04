@@ -265,17 +265,6 @@ include "io.arth"
 
 ---
 
-## 🏗️ How It Works
-
-```
-┌──────────────┐      ┌────────────────┐      ┌──────────────┐
-│ .arth Source │ ───▶ │  ASM Compiler  │ ───▶ │  Executable  │
-│  (your code) │      │   (x86_64)     │      │ (native bin) │
-└──────────────┘      └────────────────┘      └──────────────┘
-```
-
----
-
 ## 📄 License
 
 This project is open source and available under the [MIT License](LICENSE).

@@ -1,3 +1,11 @@
-include "io.arth"
+macro a
+	0 while dup 10 < do
+		dup dump
+		1 +
+	end
+	drop
 
-" " writef
+	30 dump
+end
+
+a

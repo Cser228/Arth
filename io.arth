@@ -1,3 +1,5 @@
+//write but not free your string
+//"Hello World!\n" write
 macro write
 	mem ,
 	over mem swap .
@@ -7,26 +9,35 @@ macro write
 	mem swap .
 end
 
+//write and free your string
+//"Hello World!\n" writef
 macro writef
-	swap over write
-	free_string
+	swap over write 1 - free_string
 end
 
+//give you a addr of start free memory of mfus
+//(its will be work only if you append this memory "abcd" if you append this memory like this "mems '\n' ." this doesn't will work)
 macro mems_free
 	"a" drop 1 free_string
 end
 
+//load the 16 bits (2 bytes) number
+// addr
 macro ,16
 	1 + 0
 	8 shl over , + swap 1 - swap
 	8 shl over , + swap drop
 end
 
+//store the 16 bits (2 bytes) number
+// addr value
 macro .16
 	2dup 255 band . 8 shr swap 1 + swap
 	2dup 255 band . 8 shr drop drop
 end
 
+//load the 32 bits (4 bytes) number
+// addr
 macro ,32
 	3 + 0
 	8 shl over , + swap 1 - swap
@@ -35,6 +46,8 @@ macro ,32
 	8 shl over , + swap drop
 end
 
+//store the 32 bits (4 bytes) number
+// addr value
 macro .32
 	2dup 255 band . 8 shr swap 1 + swap
 	2dup 255 band . 8 shr swap 1 + swap
@@ -42,6 +55,8 @@ macro .32
 	2dup 255 band . 8 shr drop drop
 end
 
+//load the 64 bits (8 bytes) number
+//addr
 macro ,64
 	7 + 0
 	8 shl over , + swap 1 - swap
@@ -54,6 +69,8 @@ macro ,64
 	8 shl over , + swap drop
 end
 
+//store the 64 bits (8 bytes) number
+//addr value
 macro .64
 	2dup 255 band . 8 shr swap 1 + swap
 	2dup 255 band . 8 shr swap 1 + swap
@@ -66,26 +83,10 @@ macro .64
 end
 
 macro reverse_string
-    over over + 1 -
-    swap drop
-    dup mem swap .64
-    drop
+	mems_free over 1 - +
+	while mems_free over != do
+		dup pick , . 1 - rot 1 + rot rot
+	end
 
-    while dup mem ,64 < do
-        mem ,64 ,
-        mem 8 + swap .
-
-        dup ,
-        mem ,64 swap .
-
-        mem 8 + ,
-        over swap .
-
-        1 +
-        mem ,64 1 -
-        dup mem swap .64
-        drop
-    end
-
-    drop
+	rot drop swap
 end
