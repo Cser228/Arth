@@ -996,6 +996,13 @@ mems_my:
 
 	jmp command_finish
 
+mems_free_my:
+	mov rax, r13
+	sub r12, 8
+	mov [r12], rax
+
+	jmp command_finish
+
 load_my:
 	;pop last mlv
 	mov rax, [r12]
@@ -1275,6 +1282,16 @@ over_my:
 	jmp command_finish
 
 push_str_my:
+	;DEBUG
+	;mov rax, r13
+	;call int_to_string
+	;mov rsi, rax
+	;mov rdx, rdi
+	;call write
+	;mov rsi, newline_character
+	;mov rdx, 1
+	;call write
+
 	;remove "
 	inc qword [rbp-21]
 	dec byte [rbp-13]
@@ -2054,6 +2071,14 @@ do_command:
 	call strcmp
 	cmp rax, 1
 	je mems_my
+
+	; mems_free
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "mems_free"
+	call strcmp
+	cmp rax, 1
+	je mems_free_my
 
 	; .
 	mov rax, qword [rbp-21]

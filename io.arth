@@ -12,13 +12,7 @@ end
 //write and free your string
 //"Hello World!\n" writef
 macro writef
-	swap over write 1 - free_string
-end
-
-//give you a addr of start free memory of mfus
-//(its will be work only if you append this memory "abcd" if you append this memory like this "mems '\n' ." this doesn't will work)
-macro mems_free
-	"a" drop 1 free_string
+	swap over write free_string
 end
 
 //load the 16 bits (2 bytes) number
@@ -82,11 +76,35 @@ macro .64
 	2dup 255 band . 8 shr drop drop
 end
 
+//THIS FUNCTION DON'T FREE MEMORY OF ARG
 macro reverse_string
 	mems_free over 1 - +
+
 	while mems_free over != do
 		dup pick , . 1 - rot 1 + rot rot
 	end
-
+	
+	dup pick , .
 	rot drop swap
+end
+
+//THIS FUNCTION DON'T SAVE INT ARG
+//stack: [int]
+macro int_to_string
+	dup 0 = if
+		drop mems_free '0' . mems_free 1
+		//stack: [&str strlen]
+	else
+		mems_free 0
+		//stack: [int &str strlen]
+
+		//REQUARE stack: [int &str strlen]
+		while pick 0 != do
+			1 + swap dup pick 10 mod '0' + . 1 + swap rot 10 / rot rot
+			//stack: [int/10 &str[1] (strlen+1)]
+		end
+
+		rot drop
+		//stack: [&str[1] (strlen+1)]
+	end
 end
