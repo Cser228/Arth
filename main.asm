@@ -88,7 +88,7 @@ _start:
 	;4 = for while pull stack
 	;5 = for macro inic
 	;6 = for macro do
-	;7 = for macro skip
+	;7 = for skip without while stack
 	mov qword [rbp-31], if_stack_end
 
 	;while stack
@@ -888,7 +888,7 @@ below_equal_my:
 	jmp command_finish
 
 while_my:
-	;if skip mode, push 3 and skip
+	;if skip mode, push skip marker without while stack
 	mov rdi, qword [rbp-31]
 	cmp rdi, if_stack_end
 	je .no_skip_init
@@ -935,7 +935,7 @@ while_my:
 .push_skip:
 	mov rax, qword [rbp-31]
 	sub rax, 8
-	mov qword [rax], 3
+	mov qword [rax], 7
 	mov qword [rbp-31], rax
 	jmp command_finish
 
