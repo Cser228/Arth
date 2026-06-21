@@ -1,5 +1,5 @@
-//write but not free your string
-//"Hello World!\n" write
+//Write without free string
+//EXAMPLE    :   "Hello World!\n" write
 macro write
 	mem ,
 	over mem swap .
@@ -9,8 +9,8 @@ macro write
 	mem swap .
 end
 
-//write and free your string
-//"Hello World!\n" writef
+//Write with free string
+//EXAMPLE    :   "Hello World!\n" writef
 macro writef
 	swap over write free_string
 end
@@ -76,35 +76,15 @@ macro .64
 	2dup 255 band . 8 shr drop drop
 end
 
-//THIS FUNCTION DON'T FREE MEMORY OF ARG
-macro reverse_string
-	mems_free over 1 - +
-
-	while mems_free over != do
-		dup pick , . 1 - rot 1 + rot rot
-	end
-	
-	dup pick , .
-	rot drop swap
-end
-
-//THIS FUNCTION DON'T SAVE INT ARG
+//THIS FUNCTION DON'T SAVE ARGS
 //stack: [int]
-macro int_to_string
-	dup 0 = if
-		drop mems_free '0' . mems_free 1
-		//stack: [&str strlen]
-	else
-		mems_free 0
-		//stack: [int &str strlen]
+macro move_mems_free
+	0 swap
 
-		//REQUARE stack: [int &str strlen]
-		while pick 0 != do
-			1 + swap dup pick 10 mod '0' + . 1 + swap rot 10 / rot rot
-			//stack: [int/10 &str[1] (strlen+1)]
-		end
-
-		rot drop
-		//stack: [&str[1] (strlen+1)]
+	while 2dup < do
+		"a" drop drop swap 1 + swap
 	end
+	drop drop
 end
+
+macro % mod end

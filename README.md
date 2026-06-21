@@ -123,6 +123,7 @@ Run the code!
 |--------|-------------|
 | `mem` | Push the address of the memory buffer for reading/writing |
 | `mems` | Push the address of the memory buffer, where interpritator put strings, inicializated by "`string`", you can reading/writing |
+| `mems_free` | Push the address of the free memory buffer, where interpritator put strings, inicializated by "`string`", you can reading/writing |
 | `.` | Store the given byte at the given address |
 | `,` | Load a byte from the given address |
 | `free_string` | Strings pushes like this `"Hello"` storage in the other buffer of memory and so you need free memory you allocated |
