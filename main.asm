@@ -33,32 +33,119 @@ macro strcmp_const str_val {
 }
 
 _start:
-	;get argc
-    pop rax
-    
-    ;if argc != 2
-    cmp rax, 2
-    jne .error_file
-    
-    ;program name
-    pop rax
-    
-    ;file name
-    pop rax
-
-	call read_file_C
-
-	;if rax == 0
-	cmp rax, 0
-	je .error_file
-
 	;inic stack
 	push rbp
 	mov rbp, rsp
-
-	;malloc 128 byte
 	sub rsp, 128
 
+	mov byte [rbp-100], 3
+
+	;get argc
+    mov r8, qword [rbp+8]
+
+    ;if argc <= 2
+    cmp r8, 2
+    jle .error_file
+    
+    ;drop program name
+	dec r8
+
+	;while of args
+	mov r9, 0
+	mov r13, rbp
+	add r13, 24
+	jmp .args_condition
+
+;r8 - argc
+;r9 - src
+;r10 - src_len
+;r11/r12 - uses on strcmp
+;r13 - for pop
+.args_condition:
+	;while argc != 0
+	cmp r8, 0
+	jne .args_while
+
+	cmp r9, 0
+	je .error_file
+
+	mov rax, r9
+	mov rdi, r10
+
+	jmp .after_args
+
+.args_while:
+	;get *argv
+	mov rax, qword [r13]
+	add r13, 8
+	call strlen_C
+
+	mov r11, rax
+	mov r12, rdi
+
+	; -f
+	mov rax, r11
+	mov rsi, r12
+	strcmp_const "-f"
+	call strcmp
+	cmp rax, 1
+	je .set_file
+
+	; -sim
+	mov rax, r11
+	mov rsi, r12
+	strcmp_const "-sim"
+	call strcmp
+	cmp rax, 1
+	je .simulation
+
+	; -com
+	mov rax, r11
+	mov rsi, r12
+	strcmp_const "-com"
+	call strcmp
+	cmp rax, 1
+	je .compilation
+
+	jmp .end
+	
+.set_file:
+	dec r8
+	cmp r8, 0
+	jle .error_file
+
+	mov rax, qword [r13]
+	add r13, 8
+
+	push r8
+	call read_file_C
+	pop r8
+
+	mov r9, rax
+	mov r10, rdi
+
+	jmp .end
+
+.simulation:
+	mov byte [rbp-100], 1
+
+	jmp .end
+
+.compilation:
+	mov byte [rbp-100], 0
+
+	jmp .end
+
+.end:
+	;argc--
+	dec r8
+
+	jmp .args_condition
+
+.after_args:
+	cmp byte [rbp-100], 3
+	je .where_mode
+	
 	;inic stack my language
 	mov r12, mlv_end
 
@@ -120,11 +207,23 @@ _start:
 	;uint8_t now_we_are_in_the_single_quotes?
 	mov byte [rbp-99], 0
 
+	;bool mode = sim or com
+	;0 = com
+	;1 = sim
+	;mov byte [rbp-100], bl TAK NADO
+
 	;go to while
 	jmp go_for_line
 
+.where_mode:
+	strcmp_const "Don't find a mode. Example: ./arth -f src.arth -sim"
+	mov rax, rdi
+	mov rdi, rdx
+	
+	jmp exit_with_reason
+
 .error_file:
-	strcmp_const "ERROR: amount of arguments don't equal to 2. Example: ./arth src.arth"
+	strcmp_const "Don't find a file name. Example: ./arth -f src.arth -sim"
 	mov rax, rdi
 	mov rdi, rdx
 	
@@ -219,6 +318,46 @@ read_file_C:
     pop r12
     leave
     ret
+
+;GET
+;rax = c string
+;RETURN
+;rax = string
+;rdi = string len
+strlen_C:
+	;save registers
+	push r8
+	push r9
+	push r10
+
+	;r8 - string len
+	;r9 - c string
+	;r10 - string
+	mov r8, 0
+	mov r9, rax
+	mov r10, rax
+
+.cond:
+	;check if \0
+	cmp byte [r9], 0
+	je .exit
+
+	;c string++
+	;string len++
+	inc r8
+	inc r9
+
+	jmp .cond
+
+.exit:
+	mov rax, r10
+	mov rdi, r8
+
+	pop r10
+	pop r9
+	pop r8
+
+	ret
 
 ;char *sum_two_strings(char *a, char *b, size_t a_len, size_t b_len)
 ;a = rax
@@ -1283,10 +1422,9 @@ over_my:
 
 push_str_my:
 	;DEBUG
-	;mov rax, r13
-	;call int_to_string
-	;mov rsi, rax
-	;mov rdx, rdi
+	;mov rsi, qword [rbp-21]
+	;mov rdx, 0
+	;mov dl, byte [rbp-13]
 	;call write
 	;mov rsi, newline_character
 	;mov rdx, 1
@@ -1315,15 +1453,15 @@ push_str_my:
 	mov [r12], rax
 
 	;push mlv len
-	movzx rax, dl
 	sub r12, 8
-	mov [r12], rax
+	mov [r12], rdx
 
 	jmp command_finish
 
 .while_loop:
 	;if word[] == \
 	mov rdi, qword [rbp-21]
+	mov rsi, 0
 	mov sil, byte [rdi]
 	cmp sil, 92
 	je .its_backside_flash
@@ -1342,6 +1480,11 @@ push_str_my:
 	jmp .while_condition
 
 .its_backside_flash:
+	;DEBUG
+	;mov rsi, newline_character
+	;mov rdx, 1
+	;call write
+
 	mov rdi, qword [rbp-21]
 	inc rdi
 
@@ -1357,13 +1500,31 @@ push_str_my:
 	cmp byte [rdi], 34
 	je .q
 
+	;if *(word+1) == 0
+	cmp byte [rdi], 48
+	je .z
+
+	;if *(word+1) == \
+	cmp byte [rdi], 92
+	je .f
+
+	;mfus++ (word += 2) word_len-- rdx--
+	inc r13
+	add qword [rbp-21], 2
+	dec byte [rbp-13]
+	dec rdx
+
+	jmp .while_condition
+
+.f:
 	;set mfus[] \
 	mov byte [r13], 92
 
-	;mfus++ (word += 2) (word_len -= 2)
+	;mfus++ (word += 2) word_len-- rdx--
 	inc r13
 	add qword [rbp-21], 2
-	sub byte [rbp-13], 2
+	dec byte [rbp-13]
+	dec rdx
 
 	jmp .while_condition
 
@@ -1371,10 +1532,11 @@ push_str_my:
 	;set mfus[] \n
 	mov byte [r13], 10
 
-	;mfus++ (word += 2) (word_len -= 2)
+	;mfus++ (word += 2) word_len-- rdx--
 	inc r13
 	add qword [rbp-21], 2
-	sub byte [rbp-13], 2
+	dec byte [rbp-13]
+	dec rdx
 
 	jmp .while_condition
 
@@ -1382,10 +1544,11 @@ push_str_my:
 	;set mfus[] \t
 	mov byte [r13], 9
 
-	;mfus++ (word += 2) (word_len -= 2)
+	;mfus++ (word += 2) word_len-- rdx--
 	inc r13
 	add qword [rbp-21], 2
-	sub byte [rbp-13], 2
+	dec byte [rbp-13]
+	dec rdx
 
 	jmp .while_condition
 
@@ -1393,10 +1556,23 @@ push_str_my:
 	;set mfus[] "
 	mov byte [r13], 34
 
-	;mfus++ (word += 2) (word_len -= 2)
+	;mfus++ (word += 2) word_len-- rdx--
 	inc r13
 	add qword [rbp-21], 2
-	sub byte [rbp-13], 2
+	dec byte [rbp-13]
+	dec rdx
+
+	jmp .while_condition
+
+.z:
+	;set mfus[] \0
+	mov byte [r13], 0
+
+	;mfus++ (word += 2) word_len-- rdx--
+	inc r13
+	add qword [rbp-21], 2
+	dec byte [rbp-13]
+	dec rdx
 
 	jmp .while_condition
 
@@ -2535,11 +2711,14 @@ exit:
 	mov rsp, rbp
 	pop rbp
 
+	jmp exit_s
+
+exit_s:
 	;exit
     mov rax, 60
     mov rdi, 0
     syscall
-
+	
 exit_with_reason:
 	;write error
 	mov rsi, rax

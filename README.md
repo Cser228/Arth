@@ -16,19 +16,13 @@
 
 ## 📖 About
 
-**Arth** is a minimalist stack-based programming language inspired by [Forth](https://en.wikipedia.org/wiki/Forth_(programming_language)). The compiler is written entirely in **x86_64 Assembly**, making it as close to the hardware as possible.
+**Arth** is a minimalist stack-based programming language inspired by [Forth](https://en.wikipedia.org/wiki/Forth_(programming_language)). The compiler/interpritator is written entirely in **x86_64 Assembly**, making it as close to the hardware as possible.
 
 All operations in Arth work through the stack — you push values, perform operations that pop and push results, and use control flow constructs to build programs.
 
 ---
 
 ## 🚀 Quick Start
-
-### Compile the compiler
-
-```bash
-make main
-```
 
 ### Write your program
 
@@ -41,12 +35,19 @@ include "io.arth"
 "Hello World!\n" write
 ```
 
-### Run code
+### Compile/Interpritate the code
 
-Run the code!
+Compile or Interpritate your code!
+(For compile you need the fasm on your linux)
 
+For compile:
 ```bash
-./main hello.arth
+./arth -f hello.arth -com
+```
+
+For simulate:
+```bash
+./arth -f hello.arth -sim
 ```
 
 ---
