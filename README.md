@@ -52,6 +52,17 @@ For simulate:
 
 ---
 
+## Flags for program
+
+`-f` - set the input file name
+`-sim` - set the simulation mode
+`-com` - set the compilation mode
+`-out` - set the output `elf file` name
+`-asm` - say, i need only `.asm` from compilation, and set the output asm name
+`-o` - say, i need only `.o` from compilation, and set the output o name
+
+---
+
 ## 📚 Language Reference
 
 ### Stack Operations

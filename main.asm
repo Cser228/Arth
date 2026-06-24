@@ -39,13 +39,15 @@ _start:
 	sub rsp, 128
 
 	mov byte [rbp-100], 3
+	mov qword [rbp-108], 0
+	mov byte [rbp-109], 0
 
 	;get argc
     mov r8, qword [rbp+8]
 
-    ;if argc <= 2
-    cmp r8, 2
-    jle .error_file
+    ;if argc == 1
+    cmp r8, 1
+    jle .just_name
     
     ;drop program name
 	dec r8
@@ -67,7 +69,7 @@ _start:
 	jne .args_while
 
 	cmp r9, 0
-	je .error_file
+	je .input_file
 
 	mov rax, r9
 	mov rdi, r10
@@ -91,6 +93,30 @@ _start:
 	cmp rax, 1
 	je .set_file
 
+	; -out
+	mov rax, r11
+	mov rsi, r12
+	strcmp_const "-out"
+	call strcmp
+	cmp rax, 1
+	je .out
+
+	; -asm
+	mov rax, r11
+	mov rsi, r12
+	strcmp_const "-asm"
+	call strcmp
+	cmp rax, 1
+	je .asm
+
+	; -o
+	mov rax, r11
+	mov rsi, r12
+	strcmp_const "-o"
+	call strcmp
+	cmp rax, 1
+	je .o
+
 	; -sim
 	mov rax, r11
 	mov rsi, r12
@@ -112,7 +138,7 @@ _start:
 .set_file:
 	dec r8
 	cmp r8, 0
-	jle .error_file
+	jle .input_after_file
 
 	mov rax, qword [r13]
 	add r13, 8
@@ -136,6 +162,45 @@ _start:
 
 	jmp .end
 
+.out:
+	dec r8
+	cmp r8, 0
+	jle .output_after_file
+
+	mov rax, qword [r13]
+	add r13, 8
+
+	mov qword [rbp-108], rax
+	mov byte [rbp-109], 0
+
+	jmp .end
+
+.asm:
+	dec r8
+	cmp r8, 0
+	jle .output_after_file
+
+	mov rax, qword [r13]
+	add r13, 8
+
+	mov qword [rbp-108], rax
+	mov byte [rbp-109], 2
+
+	jmp .end
+
+.o:
+	dec r8
+	cmp r8, 0
+	jle .output_after_file
+
+	mov rax, qword [r13]
+	add r13, 8
+
+	mov qword [rbp-108], rax
+	mov byte [rbp-109], 1
+
+	jmp .end
+
 .end:
 	;argc--
 	dec r8
@@ -151,6 +216,9 @@ _start:
 
 	;inic memory for user string
 	mov r13, mfus
+
+	;inic compilation string
+	mov r14, com_buff
 
 	;inic variables
 
@@ -210,24 +278,182 @@ _start:
 	;bool mode = sim or com
 	;0 = com
 	;1 = sim
-	;mov byte [rbp-100], bl TAK NADO
+	;mov byte [rbp-100], ARGS
+
+	;uint8_t name of file, he needs
+	;mov qword [rbp-108], ARGS
+
+	;uint8_t where i need stop
+	;0 = elf
+	;1 = o
+	;2 = asm
+	;mov byte [rbp-109], ARGS
+
+	;add firsts strings for compilation file if select compilation mode
+	cmp byte [rbp-100], 0
+	je .com_finish
 
 	;go to while
 	jmp go_for_line
 
+.com_finish:
+	strcmp_const "format ELF64"
+	mov rsi, rdi
+	mov rdi, r14
+	mov rcx, rdx
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], 10
+	inc r14
+	
+    strcmp_const "public _start"
+	mov rsi, rdi
+	mov rdi, r14
+	mov rcx, rdx
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], 10
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+
+	strcmp_const "section '.text' executable"
+	mov rsi, rdi
+	mov rdi, r14
+	mov rcx, rdx
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], 10
+	inc r14
+
+	strcmp_const "_start:"
+	mov rsi, rdi
+	mov rdi, r14
+	mov rcx, rdx
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], 10
+	inc r14
+
+	mov r15, fasm_cmd
+
+	strcmp_const "fasm output.asm"
+	mov rsi, rdi
+	mov rdi, r15
+	mov rcx, rdx
+	rep movsb
+	mov r15, rdi
+
+	cmp byte [rbp-109], 1
+	je .o_change
+
+	mov byte [r15], 0
+	inc r15
+
+	jmp do_elf
+
+.o_change:
+	mov byte [r15], 32
+	inc r15
+
+	mov rax, qword [rbp-108]
+	call strlen_C
+
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r15
+	rep movsb
+	mov r15, rdi
+
+	mov byte [r15], 0
+	inc r15
+
+	jmp do_elf
+
 .where_mode:
-	strcmp_const "Don't find a mode. Example: ./arth -f src.arth -sim"
+	strcmp_const "Don't find the mode. Example: ./arth -f src.arth -sim"
 	mov rax, rdi
 	mov rdi, rdx
 	
 	jmp exit_with_reason
 
-.error_file:
-	strcmp_const "Don't find a file name. Example: ./arth -f src.arth -sim"
+.just_name:
+	strcmp_const "Don't find any flags. Example: ./arth -f src.arth -sim"
 	mov rax, rdi
 	mov rdi, rdx
 	
 	jmp exit_with_reason
+
+.input_file:
+	strcmp_const "Don't find the input file name. Example: ./arth -f src.arth -sim"
+	mov rax, rdi
+	mov rdi, rdx
+	
+	jmp exit_with_reason
+
+.input_after_file:
+	strcmp_const "Don't find the input file name after flag. Example: ./arth -f src.arth -sim"
+	mov rax, rdi
+	mov rdi, rdx
+	
+	jmp exit_with_reason
+
+.output_after_file:
+	strcmp_const "Don't find the output file name after flag. Example: ./arth -f src.arth -sim -out a"
+	mov rax, rdi
+	mov rdi, rdx
+	
+	jmp exit_with_reason
+
+do_elf:
+	cmp byte [rbp-109], 0
+	jne go_for_line
+
+	cmp qword [rbp-108], 0
+	je .true
+
+	mov r15, elf_cmd
+
+	strcmp_const "ld output.o -o "
+	mov rsi, rdi
+	mov rdi, r15
+	mov rcx, rdx
+	rep movsb
+	mov r15, rdi
+
+	mov rax, qword [rbp-108]
+	call strlen_C
+
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r15
+	rep movsb
+	mov r15, rdi
+
+	mov byte [r15], 0
+	inc r15
+
+	jmp go_for_line
+
+.true:
+	mov r15, elf_cmd
+
+	strcmp_const "ld output.o -o output"
+	mov rsi, rdi
+	mov rdi, r15
+	mov rcx, rdx
+	rep movsb
+	mov r15, rdi
+
+	mov byte [r15], 0
+	inc r15
+
+	jmp go_for_line
 
 ;char *read_file(const char *file_name, size_t name_len);
 ;rax = file_name_addr
@@ -2707,6 +2933,65 @@ go_for_line:
 	jmp exit
 
 exit:
+	cmp byte [rbp-100], 0
+	je .com_write
+
+	;free stack
+	mov rsp, rbp
+	pop rbp
+
+	jmp exit_s
+
+.com_write:
+	mov rdi, asm_standart
+
+	mov rsi, qword [rbp-108]
+
+	;make .asm
+	;if 2 set name
+	cmp byte [rbp-109], 2
+	cmove rdi, rsi
+
+    mov rax, 2
+    mov rsi, 577
+    mov rdx, 420
+    syscall
+    mov r15, rax
+
+    mov rax, 1
+    mov rdi, r15
+    mov rsi, com_buff
+    mov rdx, r14
+    sub rdx, com_buff
+    syscall
+
+    mov rax, 3
+    mov rdi, r15
+    syscall
+
+	;make .o
+	cmp byte [rbp-109], 2
+	je exit_f
+
+	mov rsi, fasm_cmd
+	call run_system
+
+	mov rsi, rm_asm_cmd
+	call run_system
+
+	;make elf
+	cmp byte [rbp-109], 1
+	je exit_f
+
+	mov rsi, elf_cmd
+	call run_system
+
+	mov rsi, rm_o_cmd
+	call run_system
+
+	jmp exit_f
+
+exit_f:
 	;free stack
 	mov rsp, rbp
 	pop rbp
@@ -2734,6 +3019,50 @@ exit_with_reason:
 	mov rax, 60
 	mov rdi, 0
 	syscall
+
+;GET: rsi = string with 0
+run_system:
+	push r10
+
+    push r12
+    mov r12, rsi
+
+    mov rax, 57
+    syscall
+    
+    cmp rax, 0
+    jl .fork_error
+    je .child
+
+.parent:
+    mov rdi, rax
+    xor rsi, rsi
+    xor rdx, rdx
+    xor r10, r10
+    mov rax, 61
+    syscall
+    
+    pop r12
+	pop r10
+    ret
+
+.child:
+    mov qword [argv_generic + 16], r12
+
+    mov rax, 59
+    mov rdi, shell_path
+    mov rsi, argv_generic
+    xor rdx, rdx
+    syscall
+    
+    mov rax, 60
+    mov rdi, 1
+    syscall
+
+.fork_error:
+    pop r12
+	pop r10
+    ret
 
 segment readable writable
 
@@ -2794,6 +3123,29 @@ mbl rq 1000
 mbl_end:
 ;MACRO
 
+;this is a string with file, for compilation
+com_buff rb 65536
+com_buff_end:
+
 ;LANGUAGE VARIABLES
 
 newline_character db 10
+asm_standart      db "output.asm", 0
+shell_path        db "/bin/zsh", 0
+zsh_flag          db "-c", 0
+
+fasm_cmd          rb 100
+fasm_cmd_end:
+
+elf_cmd           rb 100
+elf_cmd_end:
+
+rm_asm_cmd        db "rm output.asm", 0
+rm_o_cmd          db "rm output.o", 0
+
+align 8
+argv_generic:
+    dq shell_path
+    dq zsh_flag
+    dq 0
+    dq 0
