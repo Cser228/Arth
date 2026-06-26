@@ -1,1 +1,5 @@
-1 2 + dump
+0 1 = if
+	1 dump
+end
+
+2 dump

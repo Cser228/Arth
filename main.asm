@@ -36,7 +36,7 @@ _start:
 	;inic stack
 	push rbp
 	mov rbp, rsp
-	sub rsp, 128
+	sub rsp, 256
 
 	mov byte [rbp-100], 3
 	mov qword [rbp-108], 0
@@ -291,6 +291,18 @@ _start:
 
 	;uint32_t counter of strings
 	mov dword [rbp-113], 0
+
+	;char ** com_strmy
+	mov qword [rbp-121], com_strmy_end
+	
+	;uint32_t * com_strmy_len
+	mov qword [rbp-129], com_strmy_len_end
+
+	;uint32_t counter for blocks
+	mov dword [rbp-133], 0
+
+	;uint32_t counter for end
+	mov dword [rbp-137], 1
 
 	;add firsts strings for compilation file if select compilation mode
 	cmp byte [rbp-100], 0
@@ -639,9 +651,11 @@ write:
 ;ret string = rax
 ;ret string_len = rdi
 int_to_string:
+	;inic stack
     push rbp
     mov rbp, rsp
     sub rsp, 32
+
     mov rcx, 10
     mov rdi, rsp
     add rdi, 31
@@ -774,6 +788,31 @@ push_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, push_com
 	mov rdi, r14
 	mov rcx, push_com_len
@@ -817,6 +856,31 @@ dump_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, dump_com
 	mov rdi, r14
 	mov rcx, dump_com_len
@@ -844,6 +908,31 @@ print_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, print_com
 	mov rdi, r14
 	mov rcx, print_com_len
@@ -874,6 +963,31 @@ plus_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, sum_com
 	mov rdi, r14
 	mov rcx, sum_com_len
@@ -904,6 +1018,31 @@ minus_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, minus_com
 	mov rdi, r14
 	mov rcx, minus_com_len
@@ -938,6 +1077,31 @@ equal_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, equ_com
 	mov rdi, r14
 	mov rcx, equ_com_len
@@ -1000,6 +1164,9 @@ strcmp:
 	ret
 
 if_my:
+	cmp byte [rbp-100], 0
+	je .com
+
 	;if last if stack exists and is 2 or 3 (skip mode)
 	mov rdi, qword [rbp-31]
 	cmp rdi, if_stack_end
@@ -1010,6 +1177,57 @@ if_my:
 	je .push_skip
 	cmp rax, 3
 	je .push_skip
+
+	jmp .no_skip
+
+.com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
+	mov rsi, if_com
+	mov rdi, r14
+	mov rcx, if_com_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-137]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], 10
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+
+	jmp command_finish
 
 .no_skip:
 	;get from mlv stack last
@@ -1043,6 +1261,9 @@ if_my:
 	jmp command_finish
 
 else_my:
+	cmp byte [rbp-100], 0
+	je .com
+
 	;get from if stack last value
 	mov rdi, qword [rbp-31]
 	
@@ -1061,6 +1282,32 @@ else_my:
 	je command_finish
 	cmp rax, 3
 	je command_finish
+
+.com:
+	mov rsi, end_com
+	mov rdi, r14
+	mov rcx, end_com_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-137]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	inc dword [rbp-137]
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+
+	jmp command_finish
 
 .check_value:
 	;if current is 1 -> 2, if 2 -> 1
@@ -1131,6 +1378,9 @@ end_macro:
 	jmp command_finish
 
 end_my:
+	cmp byte [rbp-100], 0
+	je .com
+
 	;if last if stack value == 4
 	mov rax, qword [rbp-31]
 	cmp rax, if_stack_end
@@ -1156,6 +1406,32 @@ end_my:
 
 	jmp command_finish
 
+.com:
+	mov rsi, end_com
+	mov rdi, r14
+	mov rcx, end_com_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-137]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	inc dword [rbp-137]
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+
+	jmp command_finish
+
 dup_my:
 	cmp byte [rbp-100], 0
 	je .com
@@ -1170,6 +1446,31 @@ dup_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, dup_com
 	mov rdi, r14
 	mov rcx, dup_com_len
@@ -1198,6 +1499,31 @@ two_dup_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, twodup_com
 	mov rdi, r14
 	mov rcx, twodup_com_len
@@ -1232,6 +1558,31 @@ not_equal_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, notequ_com
 	mov rdi, r14
 	mov rcx, notequ_com_len
@@ -1266,6 +1617,31 @@ above_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, above_com
 	mov rdi, r14
 	mov rcx, above_com_len
@@ -1300,6 +1676,31 @@ below_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, below_com
 	mov rdi, r14
 	mov rcx, below_com_len
@@ -1334,6 +1735,31 @@ above_equal_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, aboveequ_com
 	mov rdi, r14
 	mov rcx, aboveequ_com_len
@@ -1470,6 +1896,31 @@ mem_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, mem_com
 	mov rdi, r14
 	mov rcx, mem_com_len
@@ -1489,6 +1940,31 @@ mems_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, mems_com
 	mov rdi, r14
 	mov rcx, mems_com_len
@@ -1508,6 +1984,31 @@ mems_free_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, memsfree_com
 	mov rdi, r14
 	mov rcx, memsfree_com_len
@@ -1535,6 +2036,31 @@ load_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, load_com
 	mov rdi, r14
 	mov rcx, load_com_len
@@ -1564,6 +2090,31 @@ store_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, store_com
 	mov rdi, r14
 	mov rcx, store_com_len
@@ -1635,6 +2186,31 @@ syscall_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, syscall_com
 	mov rdi, r14
 	mov rcx, syscall_com_len
@@ -1680,6 +2256,31 @@ drop_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, drop_com
 	mov rdi, r14
 	mov rcx, drop_com_len
@@ -1711,6 +2312,31 @@ shr_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, shr_com
 	mov rdi, r14
 	mov rcx, shr_com_len
@@ -1742,6 +2368,31 @@ shl_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, shl_com
 	mov rdi, r14
 	mov rcx, shl_com_len
@@ -1772,6 +2423,31 @@ bor_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, bor_com
 	mov rdi, r14
 	mov rcx, bor_com_len
@@ -1802,6 +2478,31 @@ band_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, band_com
 	mov rdi, r14
 	mov rcx, band_com_len
@@ -1824,6 +2525,31 @@ swap_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, swap_com
 	mov rdi, r14
 	mov rcx, swap_com_len
@@ -1848,6 +2574,31 @@ over_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, over_com
 	mov rdi, r14
 	mov rcx, over_com_len
@@ -1874,7 +2625,43 @@ push_str_my:
 	jmp .while_condition
 
 .com:
-	push rdx
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
+	sub qword [rbp-121], 8
+	mov rax, qword [rbp-121]
+	mov rdi, qword [rbp-21]
+	mov qword [rax], rdi
+	mov qword [rbp-121], rax
+
+	dec qword [rbp-129]
+	mov rax, 0
+	mov al, byte [rbp-13]
+	mov rdi, qword [rbp-129]
+	mov byte [rdi], al
+	mov qword [rbp-129], rdi
 
 	inc dword [rbp-113]
 
@@ -1885,7 +2672,8 @@ push_str_my:
 	rep movsb
 	mov r14, rdi
 
-	movzx rax, dword [rbp-113]
+	mov rax, 0
+	mov eax, dword [rbp-113]
 	call int_to_string
 	mov rsi, rax
 	mov rcx, rdi
@@ -1900,13 +2688,19 @@ push_str_my:
 	rep movsb
 	mov r14, rdi
 
-	pop rax
+	movzx rax, byte [rbp-13]
 	call int_to_string
 	mov rsi, rax
 	mov rcx, rdi
 	mov rdi, r14
 	rep movsb
 	mov r14, rdi
+
+	mov byte [r14], 10
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
 
 	jmp command_finish
 
@@ -2189,6 +2983,31 @@ multi_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, multi_com
 	mov rdi, r14
 	mov rcx, multi_com_len
@@ -2221,6 +3040,31 @@ mod_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, mod_com
 	mov rdi, r14
 	mov rcx, mod_com_len
@@ -2283,6 +3127,31 @@ push_char_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, pushchar_com
 	mov rdi, r14
 	mov rcx, pushchar_com_len
@@ -2382,6 +3251,31 @@ or_my:
     jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, or_com
 	mov rdi, r14
 	mov rcx, or_com_len
@@ -2426,6 +3320,31 @@ and_my:
     jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, and_com
 	mov rdi, r14
 	mov rcx, and_com_len
@@ -2477,6 +3396,31 @@ div_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, div_com
 	mov rdi, r14
 	mov rcx, div_com_len
@@ -2499,6 +3443,31 @@ free_string_my:
 	jmp command_finish
 
 .com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
 	mov rsi, freestring_com
 	mov rdi, r14
 	mov rcx, freestring_com_len
@@ -3214,21 +4183,72 @@ go_for_line:
 
 exit:
 	cmp byte [rbp-100], 0
-	je .com_write
+	je .add_str_my
 
-	;free stack
-	mov rsp, rbp
-	pop rbp
+	jmp exit_f
 
-	jmp exit_s
-
-.com_write:
+.add_str_my:
 	mov rsi, asm_gen_end
 	mov rdi, r14
 	mov rcx, asm_gen_end_len
 	rep movsb
 	mov r14, rdi
 
+	jmp .adsm_condition
+
+.adsm_condition:
+	;while str counter > 0
+	cmp dword [rbp-113], 0
+	ja .adsm_while
+
+	jmp .com_write
+
+.adsm_while:
+	mov rsi, asm_gen_end_strmy
+	mov rdi, r14
+	mov rcx, asm_gen_end_strmy_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-113]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov rsi, asm_gen_end_strmy2
+	mov rdi, r14
+	mov rcx, asm_gen_end_strmy2_len
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], 34
+	inc r14
+
+	mov rax, qword [rbp-121]
+	mov rsi, qword [rax]
+	mov rdi, r14
+	mov rax, qword [rbp-129]
+	movzx rcx, byte [rax]
+	rep movsb
+	mov r14, rdi
+
+	add qword [rbp-121], 8
+	inc qword [rbp-129]
+
+	mov byte [r14], 34
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+
+	dec dword [rbp-113]
+	jmp .adsm_condition
+
+.com_write:
 	mov rdi, asm_standart
 
 	mov rsi, qword [rbp-108]
@@ -3413,11 +4433,27 @@ mbl_end:
 com_buff rb 65536
 com_buff_end:
 
+;this is a list of strings for compilation push str my
+com_strmy rq 5000
+com_strmy_end:
+
+;this is a list of len strings for compilation push str my
+com_strmy_len rb 5000
+com_strmy_len_end:
+
 ;LANGUAGE VARIABLES
 asm_gen_start db "format ELF64", 10, "public _start", 10, 10, "section '.text' executable", 10, 10, "int_to_string:", 10, "    push rbp", 10, "    mov rbp, rsp", 10, "    sub rsp, 32", 10, "    mov rcx, 10", 10, "    mov rdi, rsp", 10, "    add rdi, 31", 10, "    mov byte [rdi], 0", 10, "    dec rdi", 10, "    test rax, rax", 10, "    jnz .convert", 10, "    mov byte [rdi], '0'", 10, "    dec rdi", 10, "    jmp .done", 10, ".convert:", 10, "    xor rdx, rdx", 10, "    div rcx", 10, "    add dl, '0'", 10, "    mov [rdi], dl", 10, "    dec rdi", 10, "    test rax, rax", 10, "    jnz .convert", 10, ".done:", 10, "    inc rdi", 10, "    mov rax, rdi", 10, "    mov rsi, rsp", 10, "    add rsi, 31", 10, "    sub rsi, rdi", 10, "    mov rdi, rsi", 10, "    mov rsp, rbp", 10, "    pop rbp", 10, "    ret", 10, 10, "write:", 10, "    mov rax, 1", 10, "    mov rdi, 1", 10, "    syscall", 10, "    ret", 10, 10, "syscall_one:", 10, "	pop rdi", 10, "	syscall", 10, 10, "syscall_two:", 10, "	pop rsi", 10, "	je syscall_one", 10, 10, "syscall_three:", 10, "	pop rdx", 10, "	je syscall_two", 10, 10, "syscall_four:", 10, "	pop r10", 10, "	je syscall_three", 10, 10, "syscall_five:", 10, "	pop r8", 10, "	je syscall_four", 10, 10, "_start:", 10, "    mov r14, mems_my", 10, 10
 asm_gen_start_len = $ - asm_gen_start
-asm_gen_end db "    ;===exit===", 10, "    mov rax, 60", 10, "    mov rdi, 0", 10, "    syscall", 10, 10, "section '.data' writable", 10, 10, "newline_character db 10", 10, 10, "section '.bss' writable", 10, "mem_my rb 5000", 10, "mems_my rb 5000"
+asm_gen_end db "    ;===exit===", 10, "    mov rax, 60", 10, "    mov rdi, 0", 10, "    syscall", 10, 10, "section '.bss' writable", 10, "mem_my rb 5000", 10, "mems_my rb 5000", 10, 10, "section '.data' writable", 10, "newline_character db 10", 10
 asm_gen_end_len = $ - asm_gen_end
+
+asm_gen_end_strmy db "str_"
+asm_gen_end_strmy_len = $ - asm_gen_end_strmy
+asm_gen_end_strmy2 db " db "
+asm_gen_end_strmy2_len = $ - asm_gen_end_strmy2
+
+asm_gen_block_start db "block_"
+asm_gen_block_start_len = $ - asm_gen_block_start
 
 newline_character db 10
 asm_standart      db "output.asm", 0
@@ -3452,7 +4488,7 @@ sum_com db "    ;===plus===", 10, "    pop rax", 10, "    pop rdi", 10, "    add
 sum_com_len = $ - sum_com
 minus_com db "    ;===minus===", 10, "    pop rax", 10, "    pop rdi", 10, "    sub rdi, rax", 10, "    push rdi", 10, 10
 minus_com_len = $ - minus_com
-equ_com db "    ;===equal===", 10, "    pop rax", 10, "    pop rdi", 10, "    mov rsi, 0", 10, "mov rdx, 1", 10, "    cmp rax, rdi", 10, "    cmove rsi, rdx", 10, "    push rsi", 10, 10
+equ_com db "    ;===equal===", 10, "    pop rax", 10, "    pop rdi", 10, "    mov rsi, 0", 10, "    mov rdx, 1", 10, "    cmp rax, rdi", 10, "    cmove rsi, rdx", 10, "    push rsi", 10, 10
 equ_com_len = $ - equ_com
 multi_com db "    ;===multi===", 10, "    pop rax", 10, "    pop rdi", 10, "    imul rax, rdi", 10, "    push rax", 10, 10
 multi_com_len = $ - multi_com
@@ -3512,3 +4548,8 @@ pushstr_one_com db "    ;===push str===", 10, "    push str_"
 pushstr_one_com_len = $ - pushstr_one_com
 pushstr_two_com db 10, "    push "
 pushstr_two_com_len = $ - pushstr_two_com
+
+if_com db "    ;===if===", 10, "    pop rax", 10, "    test rax, rax", 10, "    jz end_"
+if_com_len = $ - if_com
+end_com db "end_"
+end_com_len = $ - end_com
