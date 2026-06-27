@@ -244,12 +244,20 @@ _start:
 	;5 = for macro inic
 	;6 = for macro do
 	;7 = for skip without while stack
+
+	;IN COMPILATION MODE, if stack хранит counter для себя, а while_stack хранит кто это? if или while
 	mov qword [rbp-31], if_stack_end
 
 	;while stack
 	mov qword [rbp-39], while_stack_end
-	;while stack for len
+	;while stack for len OR for com its counter for while_
 	mov qword [rbp-47], while_stack_len_end
+
+	mov rax, qword [rbp-47]
+	mov rdi, 1
+	cmp byte [rbp-100], 0
+	cmove rax, rdi
+	mov qword [rbp-47], rax
 
 	;uint8_t now_we_are_in_the_quotes?
 	mov byte [rbp-48], 0
@@ -1181,14 +1189,20 @@ if_my:
 	jmp .no_skip
 
 .com:
-	;put in if stack end_ counter, end_ counter += 2
+	;put in if stack end_ counter, end_ counter += 2, put in while stack its if
 	mov rax, qword [rbp-31]
 	sub rax, 8
 	mov rdi, 0
 	mov edi, dword [rbp-137]
 	mov qword [rax], rdi
 	mov qword [rbp-31], rax
+
 	add dword [rbp-137], 2
+
+	mov rax, qword [rbp-39]
+	sub rax, 8
+	mov qword [rax], 0
+	mov qword [rbp-39], rax
 
 	;
 	inc dword [rbp-133]
@@ -1437,6 +1451,62 @@ end_my:
 	jmp command_finish
 
 .com:
+	mov rax, qword [rbp-39]
+	mov rdi, qword [rax]
+	cmp rdi, 0
+	je .if
+
+	cmp rdi, 1
+	je .while
+
+	jmp command_finish
+
+.while:
+	mov rsi, endwhile_com
+	mov rcx, endwhile_com_len
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov rdi, qword [rbp-31]
+	mov rax, qword [rax]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], 10
+	inc r14
+
+	mov rsi, while_com
+	mov rcx, while_com_len
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov rdi, qword [rbp-31]
+	mov rax, qword [rdi]
+	inc rax
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+
+	add qword [rbp-31], 8
+
+	jmp command_finish
+
+.if:
 	mov rsi, end_com
 	mov rdi, r14
 	mov rcx, end_com_len
@@ -1799,6 +1869,9 @@ above_equal_my:
 	jmp command_finish
 
 below_equal_my:
+	cmp byte [rbp-100], 0
+	je .com
+
 	;save first stack
 	mov rax, [r12]
 	add r12, 8
@@ -1820,7 +1893,44 @@ below_equal_my:
 
 	jmp command_finish
 
+.com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
+	mov rsi, belowequ_com
+	mov rdi, r14
+	mov rcx, belowequ_com_len
+	rep movsb
+	mov r14, rdi
+
+	jmp command_finish
+
 while_my:
+	cmp byte [rbp-100], 0
+	je .com
+
 	;if skip mode, push skip marker without while stack
 	mov rdi, qword [rbp-31]
 	cmp rdi, if_stack_end
@@ -1831,6 +1941,42 @@ while_my:
 	je .push_skip
 	cmp rax, 3
 	je .push_skip
+
+.com:
+	mov rsi, while_com
+	mov rcx, while_com_len
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov rax, qword [rbp-47]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+
+	mov rdi, qword [rbp-47]
+	mov rax, qword [rbp-31]
+	sub rax, 8
+	mov qword [rax], rdi
+	mov qword [rbp-31], rax
+
+	mov rax, qword [rbp-39]
+	sub rax, 8
+	mov qword [rax], 1
+	mov qword [rbp-39], rax
+
+	add qword [rbp-47], 2
+
+	jmp command_finish
 
 .no_skip_init:
 	;check if we already have this address in while_stack
@@ -1873,6 +2019,9 @@ while_my:
 	jmp command_finish
 
 do_my:
+	cmp byte [rbp-100], 0
+	je .com
+
 	;check last if stack
 	mov rax, qword [rbp-31]
 	cmp rax, if_stack_end
@@ -1880,6 +2029,56 @@ do_my:
 
 	cmp qword [rax], 4
 	je .do_while
+	jmp command_finish
+
+.com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
+	mov rsi, do_com
+	mov rcx, do_com_len
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov rdi, qword [rbp-31]
+	mov rax, qword [rdi]
+	inc rax
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], 10
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+
 	jmp command_finish
 
 .do_while:
@@ -4580,15 +4779,15 @@ mod_com db "    ;===mod===", 10, "    pop rdi", 10, "    pop rax", 10, "    xor 
 mod_com_len = $ - mod_com
 div_com db "    ;===div===", 10, "    pop rdi", 10, "    pop rax", 10, "    cqo", 10, "    idiv rdi", 10, "    push rax", 10, 10
 div_com_len = $ - div_com
-notequ_com db "    ;===not equal===", 10, "    pop rax", 10, "    pop rdi", 10, "    mov rsi, 0", 10, "mov rdx, 1", 10, "    cmp rax, rdi", 10, "    cmovne rsi, rdx", 10, "    push rsi", 10, 10
+notequ_com db "    ;===not equal===", 10, "    pop rax", 10, "    pop rdi", 10, "    mov rsi, 0", 10, "    mov rdx, 1", 10, "    cmp rax, rdi", 10, "    cmovne rsi, rdx", 10, "    push rsi", 10, 10
 notequ_com_len = $ - notequ_com
 above_com db "    ;===above===", 10, "    pop rax", 10, "    pop rdi", 10, "    mov rsi, 0", 10, "    mov rdx, 1", 10, "    cmp rdi, rax", 10, "    cmova rsi, rdx", 10, "    push rsi", 10, 10
 above_com_len = $ - above_com
 below_com db "    ;===below===", 10, "    pop rax", 10, "    pop rdi", 10, "    mov rsi, 0", 10, "    mov rdx, 1", 10, "    cmp rdi, rax", 10, "    cmovb rsi, rdx", 10, "    push rsi", 10, 10
-below_com_len = $ - above_com
+below_com_len = $ - below_com
 aboveequ_com db "    ;===above equ===", 10, "    pop rax", 10, "    pop rdi", 10, "    mov rsi, 0", 10, "    mov rdx, 1", 10, "    cmp rdi, rax", 10, "    cmovae rsi, rdx", 10, "    push rsi", 10, 10
 aboveequ_com_len = $ - aboveequ_com
-belowequ_com db "    ;===below===", 10, "    pop rax", 10, "    pop rdi", 10, "    mov rsi, 0", 10, "    mov rdx, 1", 10, "    cmp rdi, rax", 10, "    cmovbe rsi, rdx", 10, "    push rsi", 10, 10
+belowequ_com db "    ;===below equ===", 10, "    pop rax", 10, "    pop rdi", 10, "    mov rsi, 0", 10, "    mov rdx, 1", 10, "    cmp rdi, rax", 10, "    cmovbe rsi, rdx", 10, "    push rsi", 10, 10
 belowequ_com_len = $ - belowequ_com
 dup_com db "    ;===dup===", 10, "    pop rax", 10, "    push rax", 10, "    push rax", 10, 10
 dup_com_len = $ - dup_com
@@ -4639,3 +4838,10 @@ else_com db "    ;===else===", 10, "    jmp end_"
 else_com_len = $ - else_com
 end_com db "end_"
 end_com_len = $ - end_com
+
+while_com db "while_"
+while_com_len = $ - while_com
+do_com db "    ;===do===", 10, "    pop rax", 10, "    test rax, rax", 10, "    jz while_"
+do_com_len = $ - do_com
+endwhile_com db "    ;===end while===", 10, "    jmp while_"
+endwhile_com_len = $ - endwhile_com
