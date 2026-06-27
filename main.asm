@@ -1181,14 +1181,14 @@ if_my:
 	jmp .no_skip
 
 .com:
-	;put in if stack end_ counter, end_ counter++
+	;put in if stack end_ counter, end_ counter += 2
 	mov rax, qword [rbp-31]
 	sub rax, 8
 	mov rdi, 0
 	mov edi, dword [rbp-137]
 	mov qword [rax], rdi
 	mov qword [rbp-31], rax
-	inc dword [rbp-137]
+	add dword [rbp-137], 2
 
 	;
 	inc dword [rbp-133]
@@ -1293,14 +1293,15 @@ else_my:
 	je command_finish
 
 .com:
-	mov rsi, end_com
+	mov rsi, else_com
 	mov rdi, r14
-	mov rcx, end_com_len
+	mov rcx, else_com_len
 	rep movsb
 	mov r14, rdi
 
-	mov rax, 0
-	mov eax, dword [rbp-137]
+	mov rdi, qword [rbp-31]
+	mov rax, qword [rdi]
+	inc rax
 	call int_to_string
 	mov rsi, rax
 	mov rcx, rdi
@@ -1308,13 +1309,33 @@ else_my:
 	rep movsb
 	mov r14, rdi
 
-	inc dword [rbp-137]
+	mov byte [r14], 10
+	inc r14
+
+	mov rsi, end_com
+	mov rdi, r14
+	mov rcx, end_com_len
+	rep movsb
+	mov r14, rdi
+
+	mov rdi, qword [rbp-31]
+	mov rax, qword [rdi]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
 
 	mov byte [r14], ':'
 	inc r14
 
 	mov byte [r14], 10
 	inc r14
+
+	mov rax, qword [rbp-31]
+	inc qword [rax]
+	mov qword [rbp-31], rax
 
 	jmp command_finish
 
@@ -4614,5 +4635,7 @@ pushstr_two_com_len = $ - pushstr_two_com
 
 if_com db "    ;===if===", 10, "    pop rax", 10, "    test rax, rax", 10, "    jz end_"
 if_com_len = $ - if_com
+else_com db "    ;===else===", 10, "    jmp end_"
+else_com_len = $ - else_com
 end_com db "end_"
 end_com_len = $ - end_com
