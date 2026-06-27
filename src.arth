@@ -1,5 +1,13 @@
-0 1 = if
-	1 dump
+0 if
+	1 if
+		2 dump
+	end
+	
+	0 if
+		3 dump
+	end
+
+	4 dump
 end
 
-2 dump
+5 dump

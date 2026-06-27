@@ -301,7 +301,7 @@ _start:
 	;uint32_t counter for blocks
 	mov dword [rbp-133], 0
 
-	;uint32_t counter for end
+	;uint32_t counter for end_
 	mov dword [rbp-137], 1
 
 	;add firsts strings for compilation file if select compilation mode
@@ -1181,6 +1181,15 @@ if_my:
 	jmp .no_skip
 
 .com:
+	;put in if stack end_ counter, end_ counter++
+	mov rax, qword [rbp-31]
+	sub rax, 8
+	mov rdi, 0
+	mov edi, dword [rbp-137]
+	mov qword [rax], rdi
+	mov qword [rbp-31], rax
+	inc dword [rbp-137]
+
 	;
 	inc dword [rbp-133]
 
@@ -1212,8 +1221,8 @@ if_my:
 	rep movsb
 	mov r14, rdi
 
-	mov rax, 0
-	mov eax, dword [rbp-137]
+	mov rdi, qword [rbp-31]
+	mov rax, qword [rdi]
 	call int_to_string
 	mov rsi, rax
 	mov rcx, rdi
@@ -1413,8 +1422,8 @@ end_my:
 	rep movsb
 	mov r14, rdi
 
-	mov rax, 0
-	mov eax, dword [rbp-137]
+	mov rdi, qword [rbp-31]
+	mov rax, qword [rdi]
 	call int_to_string
 	mov rsi, rax
 	mov rcx, rdi
@@ -1422,13 +1431,13 @@ end_my:
 	rep movsb
 	mov r14, rdi
 
-	inc dword [rbp-137]
-
 	mov byte [r14], ':'
 	inc r14
 
 	mov byte [r14], 10
 	inc r14
+
+	add qword [rbp-31], 8
 
 	jmp command_finish
 
@@ -3490,6 +3499,9 @@ do_command:
 	cmp byte [rbp-13], 0
 	je command_finish
 
+	cmp byte [rbp-100], 0
+	je .normal_exec_com
+
 	; end
 	mov rax, qword [rbp-21]
 	movzx rsi, byte [rbp-13]
@@ -3554,6 +3566,57 @@ do_command:
 	je command_finish
 	cmp rax, 3
 	je command_finish
+
+	jmp .normal_exec
+
+.normal_exec_com:
+	;if macro next word my == 1
+	cmp byte [rbp-89], 1
+	je macro_save_name
+
+	;if include next word my == 1
+	cmp byte [rbp-98], 1
+	je include_file_name
+
+	; if
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "if"
+	call strcmp
+	cmp rax, 1
+	je if_my
+
+	; else
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "else"
+	call strcmp
+	cmp rax, 1
+	je else_my
+
+	; end
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "end"
+	call strcmp
+	cmp rax, 1
+	je end_my
+
+	; while
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "while"
+	call strcmp
+	cmp rax, 1
+	je while_my
+
+	; do
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "do"
+	call strcmp
+	cmp rax, 1
+	je do_my
 
 	jmp .normal_exec
 
