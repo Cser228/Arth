@@ -1,7 +1,43 @@
-1 while dup 10 <= do
-	dup dump
+include "io.arth"
+
+macro BOARD_SIZE 30 end
+macro ARD_SIZE BOARD_SIZE 2 - end
+
+mem ARD_SIZE + 1 .
+
+0 while dup ARD_SIZE < do
+	0 while dup BOARD_SIZE < do
+		dup mem + , if
+			dup mem + BOARD_SIZE + '*' .
+		else
+			dup mem + BOARD_SIZE + ' ' .
+		end
+
+		1 +
+	end
+	drop
+
+	1 mem BOARD_SIZE + BOARD_SIZE 1 + 1 syscall3
+	mem BOARD_SIZE + '\n' .
+	1 mem BOARD_SIZE + 1 1 syscall3
+
+	//pattern
+	mem , 1 shl
+	mem 1 + ,
+	bor
+
+	1 while dup ARD_SIZE < do
+		swap 1 shl 7 band
+		over mem + 1 + , bor
+	
+		2dup 110 swap shr 1 band
+		swap mem + swap .
+		swap
+
+		1 +
+	end
+	drop drop
 
 	1 +
-end drop
-
-0 dump
+end
+drop

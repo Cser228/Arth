@@ -244,8 +244,6 @@ _start:
 	;5 = for macro inic
 	;6 = for macro do
 	;7 = for skip without while stack
-
-	;IN COMPILATION MODE, if stack хранит counter для себя, а while_stack хранит кто это? if или while
 	mov qword [rbp-31], if_stack_end
 
 	;while stack
@@ -286,6 +284,7 @@ _start:
 	;bool mode = sim or com
 	;0 = com
 	;1 = sim
+	;2 = macro save
 	;mov byte [rbp-100], ARGS
 
 	;uint8_t name of file, he needs
@@ -297,20 +296,20 @@ _start:
 	;2 = asm
 	;mov byte [rbp-109], ARGS
 
-	;uint32_t counter of strings
-	mov dword [rbp-113], 0
-
-	;char ** com_strmy
-	mov qword [rbp-121], com_strmy_end
-	
-	;uint32_t * com_strmy_len
-	mov qword [rbp-129], com_strmy_len_end
-
 	;uint32_t counter for blocks
 	mov dword [rbp-133], 0
 
 	;uint32_t counter for end_
 	mov dword [rbp-137], 1
+
+	;if stack com хранит counter для себя, а while_stack хранит кто это? if или while
+	mov qword [rbp-145], if_stack_com_end
+
+	;macro work
+	mov byte [rbp-146], 0
+
+	;/*
+	mov byte [rbp-147], 0
 
 	;add firsts strings for compilation file if select compilation mode
 	cmp byte [rbp-100], 0
@@ -1190,12 +1189,12 @@ if_my:
 
 .com:
 	;put in if stack end_ counter, end_ counter += 2, put in while stack its if
-	mov rax, qword [rbp-31]
+	mov rax, qword [rbp-145]
 	sub rax, 8
 	mov rdi, 0
 	mov edi, dword [rbp-137]
 	mov qword [rax], rdi
-	mov qword [rbp-31], rax
+	mov qword [rbp-145], rax
 
 	add dword [rbp-137], 2
 
@@ -1235,7 +1234,7 @@ if_my:
 	rep movsb
 	mov r14, rdi
 
-	mov rdi, qword [rbp-31]
+	mov rdi, qword [rbp-145]
 	mov rax, qword [rdi]
 	call int_to_string
 	mov rsi, rax
@@ -1249,6 +1248,17 @@ if_my:
 
 	mov byte [r14], 10
 	inc r14
+
+	cmp byte [rbp-146], 1
+	je .macro_end
+
+	jmp command_finish
+
+.macro_end:
+	mov rax, qword [rbp-31]
+	sub rax, 8
+	mov qword [rax], 7
+	mov qword [rbp-31], rax
 
 	jmp command_finish
 
@@ -1306,6 +1316,8 @@ else_my:
 	cmp rax, 3
 	je command_finish
 
+	jmp .check_value
+
 .com:
 	mov rsi, else_com
 	mov rdi, r14
@@ -1313,7 +1325,7 @@ else_my:
 	rep movsb
 	mov r14, rdi
 
-	mov rdi, qword [rbp-31]
+	mov rdi, qword [rbp-145]
 	mov rax, qword [rdi]
 	inc rax
 	call int_to_string
@@ -1332,7 +1344,7 @@ else_my:
 	rep movsb
 	mov r14, rdi
 
-	mov rdi, qword [rbp-31]
+	mov rdi, qword [rbp-145]
 	mov rax, qword [rdi]
 	call int_to_string
 	mov rsi, rax
@@ -1347,8 +1359,19 @@ else_my:
 	mov byte [r14], 10
 	inc r14
 
-	mov rax, qword [rbp-31]
+	mov rax, qword [rbp-145]
 	inc qword [rax]
+	mov qword [rbp-145], rax
+
+	cmp byte [rbp-146], 1
+	je .macro_end
+
+	jmp command_finish
+
+.macro_end:
+	mov rax, qword [rbp-31]
+	sub rax, 8
+	mov qword [rax], 7
 	mov qword [rbp-31], rax
 
 	jmp command_finish
@@ -1395,13 +1418,15 @@ end_my_while:
 	jmp command_finish
 
 end_macro:
+	mov byte [rbp-146], 0
+
 	;pop if_stack
 	add qword [rbp-31], 8
 
 	;if back_stack == mb_end
 	mov rax, qword [rbp-80]
 	cmp rax, mb_end
-	je command_finish
+	je .check
 
 	;src = macro back stack[]
 	mov rax, qword [rbp-80]
@@ -1419,9 +1444,28 @@ end_macro:
 	;pop macro back len stack
 	add qword [rbp-88], 8
 
+	cmp byte [rbp-100], 2
+	je .set_0
+
+	jmp command_finish
+
+.set_0:
+	mov byte [rbp-100], 0
+
+	jmp command_finish
+
+.check:
+	cmp byte [rbp-100], 2
+	je .set_0
+
 	jmp command_finish
 
 end_my:
+	;if last if stack value == 6
+	mov rax, qword [rbp-31]
+	cmp qword [rax], 6
+	je end_macro
+
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -1441,10 +1485,6 @@ end_my:
 	cmp qword [rax], 5
 	je end_macro
 
-	;if last if stack value == 6
-	cmp qword [rax], 6
-	je end_macro
-
 	;remove last if stack value
 	add qword [rbp-31], 8
 
@@ -1459,6 +1499,9 @@ end_my:
 	cmp rdi, 1
 	je .while
 
+	cmp byte [rbp-146], 1
+	je .macro_end
+
 	jmp command_finish
 
 .while:
@@ -1468,8 +1511,8 @@ end_my:
 	rep movsb
 	mov r14, rdi
 
-	mov rdi, qword [rbp-31]
-	mov rax, qword [rax]
+	mov rdi, qword [rbp-145]
+	mov rax, qword [rdi]
 	call int_to_string
 	mov rsi, rax
 	mov rcx, rdi
@@ -1486,7 +1529,7 @@ end_my:
 	rep movsb
 	mov r14, rdi
 
-	mov rdi, qword [rbp-31]
+	mov rdi, qword [rbp-145]
 	mov rax, qword [rdi]
 	inc rax
 	call int_to_string
@@ -1502,7 +1545,11 @@ end_my:
 	mov byte [r14], 10
 	inc r14
 
-	add qword [rbp-31], 8
+	add qword [rbp-145], 8
+	add qword [rbp-39], 8
+
+	cmp byte [rbp-146], 1
+	je .macro_end
 
 	jmp command_finish
 
@@ -1513,7 +1560,7 @@ end_my:
 	rep movsb
 	mov r14, rdi
 
-	mov rdi, qword [rbp-31]
+	mov rdi, qword [rbp-145]
 	mov rax, qword [rdi]
 	call int_to_string
 	mov rsi, rax
@@ -1528,6 +1575,15 @@ end_my:
 	mov byte [r14], 10
 	inc r14
 
+	add qword [rbp-145], 8
+	add qword [rbp-39], 8
+
+	cmp byte [rbp-146], 1
+	je .macro_end
+
+	jmp command_finish
+
+.macro_end:
 	add qword [rbp-31], 8
 
 	jmp command_finish
@@ -1942,6 +1998,8 @@ while_my:
 	cmp rax, 3
 	je .push_skip
 
+	jmp .no_skip_init
+
 .com:
 	mov rsi, while_com
 	mov rcx, while_com_len
@@ -1964,10 +2022,10 @@ while_my:
 	inc r14
 
 	mov rdi, qword [rbp-47]
-	mov rax, qword [rbp-31]
+	mov rax, qword [rbp-145]
 	sub rax, 8
 	mov qword [rax], rdi
-	mov qword [rbp-31], rax
+	mov qword [rbp-145], rax
 
 	mov rax, qword [rbp-39]
 	sub rax, 8
@@ -1975,6 +2033,17 @@ while_my:
 	mov qword [rbp-39], rax
 
 	add qword [rbp-47], 2
+
+	cmp byte [rbp-146], 1
+	je .macro_end
+
+	jmp command_finish
+
+.macro_end:
+	mov rax, qword [rbp-31]
+	sub rax, 8
+	mov qword [rax], 7
+	mov qword [rbp-31], rax
 
 	jmp command_finish
 
@@ -1987,6 +2056,8 @@ while_my:
 	mov rax, [rdi]
 	cmp rax, qword [rbp-8]
 	je .only_push_if_stack
+
+	jmp .push_new
 
 .push_new:
 	;push while stack space
@@ -2002,6 +2073,8 @@ while_my:
 	sub rdi, 4
 	mov dword [rdi], eax
 	mov qword [rbp-47], rdi
+
+	jmp .only_push_if_stack
 
 .only_push_if_stack:
 	;push in if stack 4
@@ -2029,6 +2102,7 @@ do_my:
 
 	cmp qword [rax], 4
 	je .do_while
+
 	jmp command_finish
 
 .com:
@@ -2063,7 +2137,7 @@ do_my:
 	rep movsb
 	mov r14, rdi
 
-	mov rdi, qword [rbp-31]
+	mov rdi, qword [rbp-145]
 	mov rax, qword [rdi]
 	inc rax
 	call int_to_string
@@ -2089,6 +2163,7 @@ do_my:
 	;if != 1, skip to end
 	cmp rax, 1
 	jne .set_skip
+
 	jmp command_finish
 
 .set_skip:
@@ -2352,61 +2427,63 @@ store_my:
 
 	jmp command_finish
 
-syscall_my:
+syscall_one:
 	cmp byte [rbp-100], 0
 	je .com
 
-	;pop mlv (syscall number)
 	mov rax, [r12]
 	add r12, 8
 
-	;pop mlv (amount of arguments)
-	mov rbx, [r12]
+	mov rdi, [r12]
+	add r12, 8
+	syscall
+
+	jmp command_finish
+
+.com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
+	mov rsi, syscall_one_com
+	mov rcx, syscall_one_com_len
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	jmp command_finish
+
+syscall_two:
+	cmp byte [rbp-100], 0
+	je .com
+
+	mov rax, [r12]
 	add r12, 8
 
-	;if n == 1
-	cmp rbx, 1
-	je .one
-	
-	;if n == 2
-	cmp rbx, 2
-	je .two
-
-	;if n == 3
-	cmp rbx, 3
-	je .three
-	
-	;if n == 4
-	cmp rbx, 4
-	je .four
-
-	;if n == 5
-	cmp rbx, 5
-	je .five
-
-	;if n == 6, do here
-
-	;pop mlv (six arg)
-	mov r9, [r12]
-	add r12, 8
-
-	;pop mlv (five arg)
-	mov r8, [r12]
-	add r12, 8
-
-	;pop mlv (fourth arg)
-	mov r10, [r12]
-	add r12, 8
-
-	;pop mlv (third arg)
-	mov rdx, [r12]
-	add r12, 8
-
-	;pop mlv (second arg)
 	mov rsi, [r12]
 	add r12, 8
 
-	;pop mlv (first arg)
 	mov rdi, [r12]
 	add r12, 8
 
@@ -2440,40 +2517,247 @@ syscall_my:
 	inc r14
 	;
 
-	mov rsi, syscall_com
+	mov rsi, syscall_two_com
+	mov rcx, syscall_two_com_len
 	mov rdi, r14
-	mov rcx, syscall_com_len
 	rep movsb
 	mov r14, rdi
 
 	jmp command_finish
 
-.one:
+syscall_three:
+	cmp byte [rbp-100], 0
+	je .com
+
+	mov rax, [r12]
+	add r12, 8
+
+	mov rdx, [r12]
+	add r12, 8
+
+	mov rsi, [r12]
+	add r12, 8
+
 	mov rdi, [r12]
 	add r12, 8
+
 	syscall
 
 	jmp command_finish
 
-.two:
-	mov rsi, [r12]
-	add r12, 8
-	jmp .one
+.com:
+	;
+	inc dword [rbp-133]
 
-.three:
-	mov rdx, [r12]
-	add r12, 8
-	jmp .two
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
 
-.four:
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
+	mov rsi, syscall_three_com
+	mov rcx, syscall_three_com_len
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	jmp command_finish
+
+syscall_four:
+	cmp byte [rbp-100], 0
+	je .com
+
+	mov rax, [r12]
+	add r12, 8
+
 	mov r10, [r12]
 	add r12, 8
-	jmp .three
 
-.five:
+	mov rdx, [r12]
+	add r12, 8
+
+	mov rsi, [r12]
+	add r12, 8
+
+	mov rdi, [r12]
+	add r12, 8
+
+	syscall
+
+	jmp command_finish
+
+.com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
+	mov rsi, syscall_four_com
+	mov rcx, syscall_four_com_len
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	jmp command_finish
+
+syscall_five:
+	cmp byte [rbp-100], 0
+	je .com
+
+	mov rax, [r12]
+	add r12, 8
+
 	mov r8, [r12]
 	add r12, 8
-	jmp .four
+
+	mov r10, [r12]
+	add r12, 8
+
+	mov rdx, [r12]
+	add r12, 8
+
+	mov rsi, [r12]
+	add r12, 8
+
+	mov rdi, [r12]
+	add r12, 8
+
+	syscall
+
+	jmp command_finish
+
+.com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
+	mov rsi, syscall_five_com
+	mov rcx, syscall_five_com_len
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	jmp command_finish
+
+syscall_six:
+	cmp byte [rbp-100], 0
+	je .com
+
+	mov rax, [r12]
+	add r12, 8
+
+	mov r9, [r12]
+	add r12, 8
+
+	mov r8, [r12]
+	add r12, 8
+
+	mov r10, [r12]
+	add r12, 8
+
+	mov rdx, [r12]
+	add r12, 8
+
+	mov rsi, [r12]
+	add r12, 8
+
+	mov rdi, [r12]
+	add r12, 8
+
+	syscall
+
+	jmp command_finish
+
+.com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
+	mov rsi, syscall_six_com
+	mov rcx, syscall_six_com_len
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	jmp command_finish
 
 drop_my:
 	cmp byte [rbp-100], 0
@@ -2879,45 +3163,28 @@ push_str_my:
 	inc r14
 	;
 
-	sub qword [rbp-121], 8
-	mov rax, qword [rbp-121]
-	mov rdi, qword [rbp-21]
-	mov qword [rax], rdi
-	mov qword [rbp-121], rax
-
-	dec qword [rbp-129]
-	mov rax, 0
-	mov al, byte [rbp-13]
-	mov rdi, qword [rbp-129]
-	mov byte [rdi], al
-	mov qword [rbp-129], rdi
-
-	inc dword [rbp-113]
-
-	;push start
 	mov rsi, pushstr_one_com
-	mov rdi, r14
 	mov rcx, pushstr_one_com_len
-	rep movsb
-	mov r14, rdi
-
-	mov rax, 0
-	mov eax, dword [rbp-113]
-	call int_to_string
-	mov rsi, rax
-	mov rcx, rdi
 	mov rdi, r14
 	rep movsb
 	mov r14, rdi
 
-	;push len
-	mov rsi, pushstr_two_com
+	movzx r8, byte [rbp-13]
+
+	jmp .com_condition
+
+.com_condition:
+	;if word_len != 0
+	cmp byte [rbp-13], 0
+	jne .com_loop
+
+	mov rsi, pushstr_four_com
+	mov rcx, pushstr_four_com_len
 	mov rdi, r14
-	mov rcx, pushstr_two_com_len
 	rep movsb
 	mov r14, rdi
 
-	movzx rax, byte [rbp-13]
+	mov rax, r8
 	call int_to_string
 	mov rsi, rax
 	mov rcx, rdi
@@ -2932,6 +3199,190 @@ push_str_my:
 	inc r14
 
 	jmp command_finish
+
+.com_loop:
+	;if word[] == \
+	mov rdi, qword [rbp-21]
+	mov rsi, 0
+	mov sil, byte [rdi]
+	cmp sil, 92
+	je .com_its_backside_flash
+
+	;set mfus[] word[]
+	mov rsi, pushstr_two_com
+	mov rcx, pushstr_two_com_len
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov rdi, qword [rbp-21]
+	movzx rax, byte [rdi]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], 10
+	inc r14
+
+	mov rsi, pushstr_three_com
+	mov rcx, pushstr_three_com_len
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	;word++ word_len--
+	inc qword [rbp-21]
+	dec byte [rbp-13]
+
+	jmp .com_condition
+
+.com_its_backside_flash:
+	mov rdi, qword [rbp-21]
+	inc rdi
+
+	;if *(word+1) == n
+	cmp byte [rdi], 110
+	je .com_n
+
+	;if *(word+1) == t
+	cmp byte [rdi], 116
+	je .com_t
+
+	;if *(word+1) == "
+	cmp byte [rdi], 34
+	je .com_q
+
+	;if *(word+1) == 0
+	cmp byte [rdi], 48
+	je .com_z
+
+	;if *(word+1) == \
+	cmp byte [rdi], 92
+	je .com_f
+
+	jmp .end
+
+.end:
+	;mfus++ (word += 2) (word_len -= 2) rdx--
+	mov rsi, pushstr_three_com
+	mov rcx, pushstr_three_com_len
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	add qword [rbp-21], 2
+	sub byte [rbp-13], 2
+	dec r8
+
+	jmp .com_condition
+
+.com_f:
+	;set mfus[] \
+	mov rsi, pushstr_two_com
+	mov rcx, pushstr_two_com_len
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 92
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], 10
+	inc r14
+
+	jmp .end
+
+.com_n:
+	;set mfus[] \n
+	mov rsi, pushstr_two_com
+	mov rcx, pushstr_two_com_len
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 10
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], 10
+	inc r14
+
+	jmp .end
+
+.com_t:
+	;set mfus[] \t
+	mov rsi, pushstr_two_com
+	mov rcx, pushstr_two_com_len
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 9
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], 10
+	inc r14
+
+	jmp .end
+
+.com_q:
+	;set mfus[] "
+	mov rsi, pushstr_two_com
+	mov rcx, pushstr_two_com_len
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 34
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], 10
+	inc r14
+
+	jmp .end
+
+.com_z:
+	;set mfus[] \0
+	mov rsi, pushstr_two_com
+	mov rcx, pushstr_two_com_len
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], 10
+	inc r14
+
+	jmp .end
 
 .while_condition:
 	;if word_len != 0
@@ -3111,6 +3562,14 @@ macro_save_name:
 
 	;set macro next word my 0
 	mov byte [rbp-89], 0
+
+	cmp byte [rbp-100], 0
+	je .set_2
+
+	jmp command_finish
+
+.set_2:
+	mov byte [rbp-100], 2
 
 	jmp command_finish
 
@@ -3719,6 +4178,9 @@ do_command:
 	cmp byte [rbp-13], 0
 	je command_finish
 
+	cmp byte [rbp-147], 1
+	je command_finish
+
 	cmp byte [rbp-100], 0
 	je .normal_exec_com
 
@@ -4046,13 +4508,53 @@ do_command:
 	cmp rax, 1
 	je load_my
 
-	; syscall
+	; syscall1
 	mov rax, qword [rbp-21]
 	movzx rsi, byte [rbp-13]
-	strcmp_const "syscall"
+	strcmp_const "syscall1"
 	call strcmp
 	cmp rax, 1
-	je syscall_my
+	je syscall_one
+
+	; syscall2
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "syscall2"
+	call strcmp
+	cmp rax, 1
+	je syscall_two
+
+	; syscall3
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "syscall3"
+	call strcmp
+	cmp rax, 1
+	je syscall_three
+
+	; syscall4
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "syscall4"
+	call strcmp
+	cmp rax, 1
+	je syscall_four
+
+	; syscall5
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "syscall5"
+	call strcmp
+	cmp rax, 1
+	je syscall_five
+
+	; syscall6
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "syscall6"
+	call strcmp
+	cmp rax, 1
+	je syscall_six
 
 	; drop
 	mov rax, qword [rbp-21]
@@ -4221,6 +4723,8 @@ checking_macro_names_condition:
 	sub rax, 8
 	mov qword [rax], 6
 	mov qword [rbp-31], rax
+
+	mov byte [rbp-146], 1
 	
 	;get implemantation stack char *
 	mov rax, qword [rbp-72]
@@ -4423,6 +4927,24 @@ go_for_line_loop:
 	cmp rax, 1
 	je comment_my
 
+	;if word == /*
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "/*"
+	call strcmp
+	;if true
+	cmp rax, 1
+	je .start_c_my
+
+	;if word == */
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "*/"
+	call strcmp
+	;if true
+	cmp rax, 1
+	je .end_c_my
+
 	mov rax, qword [rbp-8]
 
 	;if its "
@@ -4452,6 +4974,16 @@ go_for_line_loop:
 
 	jmp go_for_line
 
+.start_c_my:
+	mov byte [rbp-147], 1
+	
+	jmp command_finish
+
+.end_c_my:
+	mov byte [rbp-147], 0
+	
+	jmp command_finish
+
 go_for_line:
 	;if src_len != 0
 	cmp dword [rbp-12], 0
@@ -4477,61 +5009,6 @@ exit:
 	rep movsb
 	mov r14, rdi
 
-	jmp .adsm_condition
-
-.adsm_condition:
-	;while str counter > 0
-	cmp dword [rbp-113], 0
-	ja .adsm_while
-
-	jmp .com_write
-
-.adsm_while:
-	mov rsi, asm_gen_end_strmy
-	mov rdi, r14
-	mov rcx, asm_gen_end_strmy_len
-	rep movsb
-	mov r14, rdi
-
-	mov rax, 0
-	mov eax, dword [rbp-113]
-	call int_to_string
-	mov rsi, rax
-	mov rcx, rdi
-	mov rdi, r14
-	rep movsb
-	mov r14, rdi
-
-	mov rsi, asm_gen_end_strmy2
-	mov rdi, r14
-	mov rcx, asm_gen_end_strmy2_len
-	rep movsb
-	mov r14, rdi
-
-	mov byte [r14], 34
-	inc r14
-
-	mov rax, qword [rbp-121]
-	mov rsi, qword [rax]
-	mov rdi, r14
-	mov rax, qword [rbp-129]
-	movzx rcx, byte [rax]
-	rep movsb
-	mov r14, rdi
-
-	add qword [rbp-121], 8
-	inc qword [rbp-129]
-
-	mov byte [r14], 34
-	inc r14
-
-	mov byte [r14], 10
-	inc r14
-
-	dec dword [rbp-113]
-	jmp .adsm_condition
-
-.com_write:
 	mov rdi, asm_standart
 
 	mov rsi, qword [rbp-108]
@@ -4665,6 +5142,10 @@ mlv_end:
 if_stack rb 10000
 if_stack_end:
 
+;if stack com
+if_stack_com rb 10000
+if_stack_com_end:
+
 ;while stack
 while_stack rq 10000
 while_stack_end:
@@ -4725,7 +5206,7 @@ com_strmy_len rb 5000
 com_strmy_len_end:
 
 ;LANGUAGE VARIABLES
-asm_gen_start db "format ELF64", 10, "public _start", 10, 10, "section '.text' executable", 10, 10, "int_to_string:", 10, "    push rbp", 10, "    mov rbp, rsp", 10, "    sub rsp, 32", 10, "    mov rcx, 10", 10, "    mov rdi, rsp", 10, "    add rdi, 31", 10, "    mov byte [rdi], 0", 10, "    dec rdi", 10, "    test rax, rax", 10, "    jnz .convert", 10, "    mov byte [rdi], '0'", 10, "    dec rdi", 10, "    jmp .done", 10, ".convert:", 10, "    xor rdx, rdx", 10, "    div rcx", 10, "    add dl, '0'", 10, "    mov [rdi], dl", 10, "    dec rdi", 10, "    test rax, rax", 10, "    jnz .convert", 10, ".done:", 10, "    inc rdi", 10, "    mov rax, rdi", 10, "    mov rsi, rsp", 10, "    add rsi, 31", 10, "    sub rsi, rdi", 10, "    mov rdi, rsi", 10, "    mov rsp, rbp", 10, "    pop rbp", 10, "    ret", 10, 10, "write:", 10, "    mov rax, 1", 10, "    mov rdi, 1", 10, "    syscall", 10, "    ret", 10, 10, "syscall_one:", 10, "	pop rdi", 10, "	syscall", 10, 10, "syscall_two:", 10, "	pop rsi", 10, "	je syscall_one", 10, 10, "syscall_three:", 10, "	pop rdx", 10, "	je syscall_two", 10, 10, "syscall_four:", 10, "	pop r10", 10, "	je syscall_three", 10, 10, "syscall_five:", 10, "	pop r8", 10, "	je syscall_four", 10, 10, "_start:", 10, "    mov r14, mems_my", 10, 10
+asm_gen_start db "format ELF64", 10, "public _start", 10, 10, "section '.text' executable", 10, 10, "int_to_string:", 10, "    push rbp", 10, "    mov rbp, rsp", 10, "    sub rsp, 32", 10, "    mov rcx, 10", 10, "    mov rdi, rsp", 10, "    add rdi, 31", 10, "    mov byte [rdi], 0", 10, "    dec rdi", 10, "    test rax, rax", 10, "    jnz .convert", 10, "    mov byte [rdi], '0'", 10, "    dec rdi", 10, "    jmp .done", 10, ".convert:", 10, "    xor rdx, rdx", 10, "    div rcx", 10, "    add dl, '0'", 10, "    mov [rdi], dl", 10, "    dec rdi", 10, "    test rax, rax", 10, "    jnz .convert", 10, ".done:", 10, "    inc rdi", 10, "    mov rax, rdi", 10, "    mov rsi, rsp", 10, "    add rsi, 31", 10, "    sub rsi, rdi", 10, "    mov rdi, rsi", 10, "    mov rsp, rbp", 10, "    pop rbp", 10, "    ret", 10, 10, "write:", 10, "    mov rax, 1", 10, "    mov rdi, 1", 10, "    syscall", 10, "    ret", 10, 10, "_start:", 10, "    mov r14, mems_my", 10, 10
 asm_gen_start_len = $ - asm_gen_start
 asm_gen_end db "    ;===exit===", 10, "    mov rax, 60", 10, "    mov rdi, 0", 10, "    syscall", 10, 10, "section '.bss' writable", 10, "mem_my rb 5000", 10, "mems_my rb 5000", 10, 10, "section '.data' writable", 10, "newline_character db 10", 10
 asm_gen_end_len = $ - asm_gen_end
@@ -4763,22 +5244,25 @@ argv_generic:
 
 push_com db "    ;===push_int===", 10, "    push "
 push_com_len = $ - push_com
+
 dump_com db "    ;===dump===", 10, "    pop rax", 10, "    call int_to_string", 10, "    mov rsi, rax", 10, "    mov rdx, rdi", 10, "    call write", 10, "    mov rsi, newline_character", 10, "    mov rdx, 1", 10, "    call write", 10, 10
 dump_com_len = $ - dump_com
 print_com db "    ;===print===", 10, "    pop rax", 10, "    call int_to_string", 10, "    mov rsi, rax", 10, "    mov rdx, rdi", 10, "    call write", 10, 10
 print_com_len = $ - print_com
+
 sum_com db "    ;===plus===", 10, "    pop rax", 10, "    pop rdi", 10, "    add rax, rdi", 10, "    push rax", 10, 10
 sum_com_len = $ - sum_com
 minus_com db "    ;===minus===", 10, "    pop rax", 10, "    pop rdi", 10, "    sub rdi, rax", 10, "    push rdi", 10, 10
 minus_com_len = $ - minus_com
-equ_com db "    ;===equal===", 10, "    pop rax", 10, "    pop rdi", 10, "    mov rsi, 0", 10, "    mov rdx, 1", 10, "    cmp rax, rdi", 10, "    cmove rsi, rdx", 10, "    push rsi", 10, 10
-equ_com_len = $ - equ_com
 multi_com db "    ;===multi===", 10, "    pop rax", 10, "    pop rdi", 10, "    imul rax, rdi", 10, "    push rax", 10, 10
 multi_com_len = $ - multi_com
 mod_com db "    ;===mod===", 10, "    pop rdi", 10, "    pop rax", 10, "    xor rdx, rdx", 10, "    idiv rdi", 10, "    mov rcx, rdx", 10, "    push rcx", 10, 10
 mod_com_len = $ - mod_com
 div_com db "    ;===div===", 10, "    pop rdi", 10, "    pop rax", 10, "    cqo", 10, "    idiv rdi", 10, "    push rax", 10, 10
 div_com_len = $ - div_com
+
+equ_com db "    ;===equal===", 10, "    pop rax", 10, "    pop rdi", 10, "    mov rsi, 0", 10, "    mov rdx, 1", 10, "    cmp rax, rdi", 10, "    cmove rsi, rdx", 10, "    push rsi", 10, 10
+equ_com_len = $ - equ_com
 notequ_com db "    ;===not equal===", 10, "    pop rax", 10, "    pop rdi", 10, "    mov rsi, 0", 10, "    mov rdx, 1", 10, "    cmp rax, rdi", 10, "    cmovne rsi, rdx", 10, "    push rsi", 10, 10
 notequ_com_len = $ - notequ_com
 above_com db "    ;===above===", 10, "    pop rax", 10, "    pop rdi", 10, "    mov rsi, 0", 10, "    mov rdx, 1", 10, "    cmp rdi, rax", 10, "    cmova rsi, rdx", 10, "    push rsi", 10, 10
@@ -4789,48 +5273,74 @@ aboveequ_com db "    ;===above equ===", 10, "    pop rax", 10, "    pop rdi", 10
 aboveequ_com_len = $ - aboveequ_com
 belowequ_com db "    ;===below equ===", 10, "    pop rax", 10, "    pop rdi", 10, "    mov rsi, 0", 10, "    mov rdx, 1", 10, "    cmp rdi, rax", 10, "    cmovbe rsi, rdx", 10, "    push rsi", 10, 10
 belowequ_com_len = $ - belowequ_com
+
 dup_com db "    ;===dup===", 10, "    pop rax", 10, "    push rax", 10, "    push rax", 10, 10
 dup_com_len = $ - dup_com
 twodup_com db "    ;===2dup===", 10, "    pop rax", 10, "pop rdi", 10, "    push rdi", 10, "    push rax", 10, "    push rdi", 10, "    push rax", 10, 10
 twodup_com_len = $ - twodup_com
+
 mem_com db "    ;===mem===", 10, "    mov rax, mem_my", 10, "    push rax", 10, 10
 mem_com_len = $ - mem_com
 mems_com db "    ;===mems===", 10, "    mov rax, mems_my", 10, "    push rax", 10, 10
 mems_com_len = $ - mems_com
 memsfree_com db "    ;===mems free===", 10, "    mov rax, r14", 10, "    push rax", 10, 10
 memsfree_com_len = $ - memsfree_com
+
 store_com db "    ;===store===", 10, "    pop rax", 10, "    pop rdi", 10, "    mov sil, al", 10, "    mov byte [rdi], sil", 10, 10
 store_com_len = $ - store_com
 load_com db "    ;===load===", 10, "    pop rax", 10, "    mov bl, byte [rax]", 10, "    movzx rax, bl", 10, "    push rax", 10, 10
 load_com_len = $ - load_com
+
 drop_com db "    ;===drop===", 10, "    pop rax", 10, 10
 drop_com_len = $ - drop_com
+
 shr_com db "    ;===shr===", 10, "    pop rdi", 10, "    pop rax", 10, "    mov cl, dil", 10, "    shr rax, cl", 10, "    push rax", 10, 10
 shr_com_len = $ - shr_com
 shl_com db "    ;===shl===", 10, "    pop rdi", 10, "    pop rax", 10, "    mov cl, dil", 10, "    shl rax, cl", 10, "    push rax", 10, 10
 shl_com_len = $ - shl_com
+
 bor_com db "    ;===bor===", 10, "    pop rdi", 10, "    pop rax", 10, "    or rax, rdi", 10, "    push rax", 10, 10
 bor_com_len = $ - bor_com
 band_com db "    ;===band===", 10, "    pop rdi", 10, "    pop rax", 10, "    and rax, rdi", 10, "    push rax", 10, 10
 band_com_len = $ - band_com
+
 or_com db "    ;===or===", 10, "    pop rax", 10, "    pop rdi", 10, "    mov rsi, 0", 10, "    mov rdx, 1", 10, "    cmp rax, 1", 10, "    cmove rsi, rdx", 10, "    cmp rdi, 1", 10, "    cmove rsi, rdx", 10, "    push rsi", 10, 10
 or_com_len = $ - or_com
 and_com db "    ;===and===", 10, "    pop rax", 10, "    pop rdi", 10, "    mov rsi, 0", 10, "    mov rdx, 0", 10, "    mov r8, 1", 10, "    cmp rax, 1", 10, "    cmove rsi, r8", 10, "    cmp rdi, 1", 10, "    cmove rdx, r8", 10, "    add rsi, rdx", 10, "    mov rdx, 0", 10, "    cmp rsi, 2", 10, "    cmove rdx, r8", 10, "    push rdx", 10, 10
 and_com_len = $ - and_com
+
 swap_com db "    ;===swap===", 10, "    pop rax", 10, "    pop rdi", 10, "    push rax", 10, "    push rdi", 10, 10
 swap_com_len = $ - swap_com
 over_com db "    ;===over===", 10, "    pop rax", 10, "    pop rdi", 10, "    push rdi", 10, "    push rax", 10, "    push rdi", 10, 10
 over_com_len = $ - over_com
+
 freestring_com db "    ;===free string===", 10, "    pop rax", 10, "    sub r14, rax", 10, 10
 freestring_com_len = $ - freestring_com
-syscall_com db "    ;===syscall===", 10, "    pop rax", 10, "    pop rbx", 10, "    cmp rbx, 1", 10, "    je syscall_one", 10, "    cmp rbx, 2", 10, "    je syscall_two", 10, "    cmp rbx, 3", 10, "    je syscall_three", 10, "    cmp rbx, 4", 10, "    je syscall_four", 10, "    cmp rbx, 5", 10, "    je syscall_five", 10, "    pop r9", 10, "    pop r8", 10, "    pop r10", 10, "    pop rdx", 10, "    pop rsi", 10, "    pop rdi", 10, "    syscall", 10, 10
-syscall_com_len = $ - syscall_com
+
 pushchar_com db "    ;===push char===", 10, "    push "
 pushchar_com_len = $ - pushchar_com
-pushstr_one_com db "    ;===push str===", 10, "    push str_"
+
+pushstr_one_com db "    ;===push str===", 10, "    push r14", 10
 pushstr_one_com_len = $ - pushstr_one_com
-pushstr_two_com db 10, "    push "
+pushstr_two_com db "    mov byte [r14], "
 pushstr_two_com_len = $ - pushstr_two_com
+pushstr_three_com db "    inc r14", 10
+pushstr_three_com_len = $ - pushstr_three_com
+pushstr_four_com db "    push "
+pushstr_four_com_len = $ - pushstr_four_com
+
+syscall_one_com db "    ;===syscall1===", 10, "    pop rax", 10, "    pop rdi", 10, "    syscall", 10, 10
+syscall_one_com_len = $ - syscall_one_com
+syscall_two_com db "    ;===syscall2===", 10, "    pop rax", 10, "    pop rsi", 10, "    pop rdi", 10, "    syscall", 10, 10
+syscall_two_com_len = $ - syscall_two_com
+syscall_three_com db "    ;===syscall3===", 10, "    pop rax", 10, "    pop rdx", 10, "    pop rsi", 10, "    pop rdi", 10, "    syscall", 10, 10
+syscall_three_com_len = $ - syscall_three_com
+syscall_four_com db "    ;===syscall4===", 10, "    pop rax", 10, "    pop r10", 10, "    pop rdx", 10, "    pop rsi", 10, "    pop rdi", 10, "    syscall", 10, 10
+syscall_four_com_len = $ - syscall_four_com
+syscall_five_com db "    ;===syscall5===", 10, "    pop rax", 10, "    pop r8", 10, "    pop r10", 10, "    pop rdx", 10, "    pop rsi", 10, "    pop rdi", 10, "    syscall", 10, 10
+syscall_five_com_len = $ - syscall_five_com
+syscall_six_com db "    ;===syscall6===", 10, "    pop rax", 10, "    pop r9", 10, "    pop r8", 10, "    pop r10", 10, "    pop rdx", 10, "    pop rsi", 10, "    pop rdi", 10, "    syscall", 10, 10
+syscall_six_com_len = $ - syscall_six_com
 
 if_com db "    ;===if===", 10, "    pop rax", 10, "    test rax, rax", 10, "    jz end_"
 if_com_len = $ - if_com

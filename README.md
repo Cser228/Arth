@@ -145,12 +145,19 @@ For simulate:
 | Syntax | Description |
 |--------|-------------|
 | `//` | Line comment — everything after `//` is ignored |
+| `/*` | Start block comment |
+| `*/` | End block comment |
 
 ### System
 
 | Syntax | Description |
 |--------|-------------|
-| `syscall` | Perform the syscall |
+| `syscall1` | Perform the syscall1 |
+| `syscall2` | Perform the syscall2 |
+| `syscall3` | Perform the syscall3 |
+| `syscall4` | Perform the syscall4 |
+| `syscall5` | Perform the syscall5 |
+| `syscall6` | Perform the syscall6 |
 
 ### Macros
 | Syntax | Description |
@@ -224,9 +231,9 @@ mem , dump      //read from memory one byte
 1 //1 arg
 2 //2 arg
 3 //n arg
-3 //amount of arguments (n)
 1 //syscall number
-syscall
+syscall3 //3 you can change on 2, 1, 4, 5, 6
+//syscall2 syscall3 syscall1 syscall4 syscall5 syscall6
 ```
 
 ### Bits Operations
@@ -249,8 +256,8 @@ end
 ```pascal
 4 1 swap dump dump             //print: 1 4
 5 10 over dump dump dump       //print: 5 10 5
-1 "Hello World!" 3 1 syscall   //print: Hello World!
-mem 'a' . 1 mem 1 3 1 syscall  //print: a
+1 "Hello World!" 1 syscall3   //print: Hello World!
+mem 'a' . 1 mem 1 1 syscall3  //print: a
 ```
 
 ### Macros
@@ -261,7 +268,7 @@ macro write
 	over mem swap .
 	swap drop swap
 	1 swap
-	mem , 3 1 syscall
+	mem , 1 syscall3
 	mem swap .
 end
 
