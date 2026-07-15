@@ -1,0 +1,3 @@
+include "io.arth"
+
+"Hello World!\n" writef    // Hello World!

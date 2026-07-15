@@ -1,0 +1,5 @@
+10 5 > if
+  1 dump        // 1
+else
+  0 dump
+end

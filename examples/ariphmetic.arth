@@ -1,0 +1,8 @@
+10 20 + dump                      // 30
+50 8 - dump                       // 42
+100 dup dump                      // 100
+100 - dump                        // 0
+3 2 * dump                        // 6
+10 2 / dump                       // 5
+3 2 mod dump                      // 1
+1 0 or dump                       // 1

@@ -1,0 +1,4 @@
+4 1 swap dump dump                   // 1 4
+5 10 over dump dump dump             // 5 10 5
+1 "Hello World!\n" 1 syscall3        // Hello World!
+mem 'a' . 1 mem 1 1 syscall3         // a

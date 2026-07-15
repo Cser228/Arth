@@ -40,7 +40,9 @@ _start:
 
 	mov byte [rbp-100], 3
 	mov qword [rbp-108], 0
+	mov qword [rbp-117], include_dop_end
 	mov byte [rbp-109], 0
+	mov byte [rbp-118], 0
 
 	;get argc
     mov r8, qword [rbp+8]
@@ -53,15 +55,14 @@ _start:
 	dec r8
 
 	;while of args
-	mov r9, 0
-	mov r13, rbp
+ 	mov r13, rbp
 	add r13, 24
 	jmp .args_condition
 
 ;r8 - argc
 ;r9 - src
 ;r10 - src_len
-;r11/r12 - uses on strcmp
+;r11/r12 - argv string
 ;r13 - for pop
 .args_condition:
 	;while argc != 0
@@ -133,9 +134,41 @@ _start:
 	cmp rax, 1
 	je .compilation
 
+	; -I
+	mov rax, r11
+	mov rsi, r12
+	strcmp_const "-I"
+	call strcmp
+	cmp rax, 1
+	je .include_folder_set
+
+	cmp byte [rbp-118], 1
+	je .include_folder
+
+	jmp .end
+
+.include_folder_set:
+	mov byte [rbp-118], 1
+
+	jmp .end
+
+.include_folder:
+	mov rax, r11
+	mov rdi, r12
+	call string_to_C
+
+	mov rdi, rax
+
+	mov rax, qword [rbp-117]
+	sub rax, 8
+	mov qword [rax], rdi
+	mov qword [rbp-117], rax
+
 	jmp .end
 	
 .set_file:
+	mov byte [rbp-118], 0
+
 	dec r8
 	cmp r8, 0
 	jle .input_after_file
@@ -153,16 +186,22 @@ _start:
 	jmp .end
 
 .simulation:
+	mov byte [rbp-118], 0
+
 	mov byte [rbp-100], 1
 
 	jmp .end
 
 .compilation:
+	mov byte [rbp-118], 0
+
 	mov byte [rbp-100], 0
 
 	jmp .end
 
 .out:
+	mov byte [rbp-118], 0
+
 	dec r8
 	cmp r8, 0
 	jle .output_after_file
@@ -176,6 +215,8 @@ _start:
 	jmp .end
 
 .asm:
+	mov byte [rbp-118], 0
+
 	dec r8
 	cmp r8, 0
 	jle .output_after_file
@@ -189,6 +230,8 @@ _start:
 	jmp .end
 
 .o:
+	mov byte [rbp-118], 0
+
 	dec r8
 	cmp r8, 0
 	jle .output_after_file
@@ -295,6 +338,12 @@ _start:
 	;1 = o
 	;2 = asm
 	;mov byte [rbp-109], ARGS
+
+	;char**
+	;mov qword [rbp-117], include_dop_end ARGS
+
+	;uint8_t
+	;mov byte [rbp-118], -I забирает всё себе ARGS
 
 	;uint32_t counter for blocks
 	mov dword [rbp-133], 0
@@ -519,9 +568,13 @@ read_file_C:
     mov rax, 3
     syscall
 
+	jmp .error
+
 .error:
     xor rax, rax
     xor rdi, rdi
+
+	jmp .exit
 
 .exit:
     pop r14
@@ -529,6 +582,68 @@ read_file_C:
     pop r12
     leave
     ret
+
+;GET
+;rax = string
+;rdi = string len
+;RETURN
+;rax = C string
+string_to_C:
+	push rbx
+	push r12
+	push r13
+	push r8
+	push r9
+	push r10
+	push rcx
+	push r11
+
+	mov r12, rax
+	mov r13, rdi
+
+	mov rsi, r13
+	inc rsi
+	mov rax, 9
+	xor rdi, rdi
+	mov rdx, 3
+	mov r10, 34
+	mov r8, -1
+	xor r9, r9
+	syscall
+
+	mov rbx, rax
+
+	cmp rbx, -1
+	je .error
+
+	mov rsi, r12
+	mov rcx, r13
+	mov rdi, rbx
+	rep movsb
+
+	mov byte [rdi], 0
+
+	mov rax, rbx
+
+	jmp .end
+
+.error:
+	strcmp_const "mmap error"
+	mov rax, rdi
+	mov rdi, rdx
+	
+	jmp exit_with_reason
+
+.end:
+	pop	r11
+	pop rcx
+	pop r10
+	pop r9
+	pop r8
+	pop r13
+	pop r12
+	pop rbx
+	ret
 
 ;GET
 ;rax = c string
@@ -3574,10 +3689,40 @@ macro_save_name:
 	jmp command_finish
 
 include_my:
+	;DEBUG
+	;push r8
+	;mov r8, qword [rbp-117]
+	;jmp .debug
+
 	;set include next word my 1
 	mov byte [rbp-98], 1
 
 	jmp command_finish
+
+.debug:
+	;while rbp-117 != include_dop_end
+	cmp r8, include_dop_end
+	jne .while
+
+	pop r8
+	jmp command_finish
+
+.while:
+	;pop rbp-117
+	mov rax, qword [r8]
+	add r8, 8
+
+	call strlen_C
+
+	mov rsi, pushchar_com
+	mov rdx, pushchar_com_len
+	call write
+
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	jmp .debug
 
 include_file_name:
 	;set include next word my 0
@@ -3592,11 +3737,27 @@ include_file_name:
 	inc qword [rbp-21]
 	dec byte [rbp-13]
 
-	mov rdi, 0
+	;if not exists
+	mov   rax, qword [rbp-21]
+	movzx rdi, byte [rbp-13]
+	call string_to_C
+	push rax
+	mov rdi, rax
+
+	mov rax, 4
+	mov rsi, stat_buff
+	syscall
+
+	test rax, rax
+	js .not_found
+
+	pop rax
+	call strlen_C
+	call free_allocated
 
 	;read_file
 	mov rax, qword [rbp-21]
-	mov dil, byte [rbp-13]
+	movzx rdi, byte [rbp-13]
 	call read_file
 
 	mov r8, rax
@@ -3634,13 +3795,97 @@ include_file_name:
 	pop rax
 	call free_allocated
 
-	;DEBUG
-	;mov rsi, qword [rbp-8]
-	;mov rdx, 0
-	;mov edx, dword [rbp-12]
-	;call write
+	jmp command_finish_save
+
+.not_found:
+	pop rax
+	call strlen_C
+	call free_allocated
+
+	;while [rbp-117] != include_dop_end
+	cmp qword [rbp-117], include_dop_end
+	jne .while
+
+	jmp .error_file
+
+.while:
+	;get string
+	mov rdi, qword [rbp-117]
+	mov rax, qword [rdi]
+	call strlen_C
+	mov rsi, qword [rbp-21]
+	movzx rdx, byte [rbp-13]
+	call sum_two_strings
+	call string_to_C
+	push rax
+	mov rdi, rax
+
+	;if not exists
+	mov rax, 4
+	mov rsi, stat_buff
+	syscall
+
+	test rax, rax
+	js .end
+
+	pop rax
+	call strlen_C
+	call free_allocated
+
+	;open
+	mov rdi, qword [rbp-117]
+	mov rax, qword [rdi]
+	call strlen_C
+	mov rsi, qword [rbp-21]
+	movzx rdx, byte [rbp-13]
+	call sum_two_strings
+	call read_file
+
+	mov r8, rax
+	mov r9, rdi
+
+	;if rax == 0
+	cmp rax, 0
+	je .error_file
+
+	push r8
+	push r9
+	mov rax, qword [rbp-8]
+	mov rdi, 0
+	mov edi, dword [rbp-12]
+	push rax
+	push rdi
+
+	mov rax, r8
+	mov rdi, r9
+	mov rsi, qword [rbp-8]
+	mov rdx, 0
+	mov edx, dword [rbp-12]
+	call sum_two_strings
+
+	;src = string
+	;src_len = len
+	mov qword [rbp-8], rax
+	mov dword [rbp-12], edi
+
+	pop rdi
+	pop rax
+	call free_allocated
+
+	pop rdi
+	pop rax
+	call free_allocated
 
 	jmp command_finish_save
+
+.end:
+	pop rax
+	call strlen_C
+	call free_allocated
+
+	add qword [rbp-117], 8
+
+	jmp .not_found
 
 .error_file:
 	strcmp_const "ERROR `include` operation: this file don't exists"
@@ -5204,6 +5449,11 @@ com_strmy_end:
 ;this is a list of len strings for compilation push str my
 com_strmy_len rb 5000
 com_strmy_len_end:
+
+include_dop rq 50
+include_dop_end:
+
+stat_buff rb 144
 
 ;LANGUAGE VARIABLES
 asm_gen_start db "format ELF64", 10, "public _start", 10, 10, "section '.text' executable", 10, 10, "int_to_string:", 10, "    push rbp", 10, "    mov rbp, rsp", 10, "    sub rsp, 32", 10, "    mov rcx, 10", 10, "    mov rdi, rsp", 10, "    add rdi, 31", 10, "    mov byte [rdi], 0", 10, "    dec rdi", 10, "    test rax, rax", 10, "    jnz .convert", 10, "    mov byte [rdi], '0'", 10, "    dec rdi", 10, "    jmp .done", 10, ".convert:", 10, "    xor rdx, rdx", 10, "    div rcx", 10, "    add dl, '0'", 10, "    mov [rdi], dl", 10, "    dec rdi", 10, "    test rax, rax", 10, "    jnz .convert", 10, ".done:", 10, "    inc rdi", 10, "    mov rax, rdi", 10, "    mov rsi, rsp", 10, "    add rsi, 31", 10, "    sub rsi, rdi", 10, "    mov rdi, rsi", 10, "    mov rsp, rbp", 10, "    pop rbp", 10, "    ret", 10, 10, "write:", 10, "    mov rax, 1", 10, "    mov rdi, 1", 10, "    syscall", 10, "    ret", 10, 10, "_start:", 10, "    mov r14, mems_my", 10, 10

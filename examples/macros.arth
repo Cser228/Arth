@@ -1,0 +1,10 @@
+macro write
+	mem ,
+	over mem swap .
+	swap drop swap
+	1 swap
+	mem , 1 syscall3
+	mem swap .
+end
+
+"Hello World!\n" write      //Hello World!
