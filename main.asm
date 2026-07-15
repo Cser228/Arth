@@ -43,6 +43,7 @@ _start:
 	mov qword [rbp-117], include_dop_end
 	mov byte [rbp-109], 0
 	mov byte [rbp-118], 0
+	mov byte [rbp-119], 0
 
 	;get argc
     mov r8, qword [rbp+8]
@@ -142,8 +143,21 @@ _start:
 	cmp rax, 1
 	je .include_folder_set
 
+	; -r
+	mov rax, r11
+	mov rsi, r12
+	strcmp_const "-r"
+	call strcmp
+	cmp rax, 1
+	je .run_after_compile
+
 	cmp byte [rbp-118], 1
 	je .include_folder
+
+	jmp .end
+
+.run_after_compile:
+	mov byte [rbp-119], 1
 
 	jmp .end
 
@@ -342,8 +356,11 @@ _start:
 	;char**
 	;mov qword [rbp-117], include_dop_end ARGS
 
-	;uint8_t
+	;bool
 	;mov byte [rbp-118], -I забирает всё себе ARGS
+
+	;bool
+	;mov byte [rbp-119], -r ARGS
 
 	;uint32_t counter for blocks
 	mov dword [rbp-133], 0
@@ -5300,6 +5317,48 @@ exit:
 	mov rsi, rm_o_cmd
 	call run_system
 
+	cmp byte [rbp-119], 1
+	je .run_after_execute
+
+	jmp exit_f
+
+.run_after_execute:
+	cmp qword [rbp-108], 0
+	je .r_default
+
+	strcmp_const "./"
+	mov rsi, rdi
+	mov rdi, run_after_execute_cmd
+	mov rcx, rdx
+	rep movsb
+	push rdi
+
+	mov rax, qword [rbp-108]
+	call strlen_C
+	mov rsi, rax
+	mov rcx, rdi
+	pop rdi
+	rep movsb
+
+	mov byte [rdi], 0
+
+	mov rsi, run_after_execute_cmd
+	call run_system
+
+	jmp exit_f
+
+.r_default:
+	strcmp_const "./output"
+	mov rsi, rdi
+	mov rdi, run_after_execute_cmd
+	mov rcx, rdx
+	rep movsb
+
+	mov byte [rdi], 0
+
+	mov rsi, run_after_execute_cmd
+	call run_system
+
 	jmp exit_f
 
 exit_f:
@@ -5475,13 +5534,13 @@ shell_path        db "/bin/zsh", 0
 zsh_flag          db "-c", 0
 
 fasm_cmd          rb 100
-fasm_cmd_end:
 
 elf_cmd           rb 100
-elf_cmd_end:
 
 rm_asm_cmd        db "rm output.asm", 0
 rm_o_cmd          db "rm output.o", 0
+
+run_after_execute_cmd rb 100
 
 align 8
 argv_generic:

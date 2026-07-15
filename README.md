@@ -56,13 +56,14 @@ For simulate:
 
 | Flag | Description |
 |------|-------------|
-| `-f` | set the input file name |
-|`-sim` | set the simulation mode |
-|`-com` | set the compilation mode |
-|`-out` | set the output `elf file` name |
-|`-asm` | say, i need only `.asm` from compilation, and set the output asm name |
-|`-o` | say, i need only `.o` from compilation, and set the output o name |
-|`-I` | add additionals folders for `include` |
+| `-f` | Set the input file name |
+| `-sim` | Set the simulation mode |
+| `-com` | Set the compilation mode |
+| `-out` | Set the output `elf file` name |
+| `-asm` | Say, i need only `.asm` from compilation, and set the output asm name |
+| `-o` | Say, i need only `.o` from compilation, and set the output o name |
+| `-I` | Add additionals folders for `include` |
+| `-r` | Run the programm after compilation |
 
 ---
 
