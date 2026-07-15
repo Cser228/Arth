@@ -171,117 +171,15 @@ For simulate:
 |--------|-------------|
 | `include` | Add code in the file to this file |
 
+### Arguments
+| Syntax | Description |
+| `argc` | Push into the stack count of arguments |
+| `argv` | Push into the stack a list with arguments |
+
 ---
 
 ## 💡 Examples
-
-### Arithmetic & Output
-
-```pascal
-10 20 + dump                      // 30
-50 8 - dump                       // 42
-100 dup dump                      // 100
-100 - dump                        // 0
-3 2 * dump                        // 6
-10 2 / dump                       // 5
-3 2 mod dump                      // 1
-1 0 or dump                       // 1
-```
-
-### Conditionals
-
-```pascal
-10 5 > if
-  1 dump        // prints 1 (true)
-else
-  0 dump        // won't run
-end
-```
-
-### Countdown Loop
-
-```pascal
-10 0 while 2dup > do
-  dup dump
-  1 +
-end
-drop drop
-// prints: 0 1 2 3 4 5 6 7 8 9
-```
-
-### Comparisons
-
-```pascal
-5 5 = dump      // 1 (equal)
-5 3 != dump     // 1 (not equal)
-10 5 >= dump    // 1 (greater or equal)
-3 7 < dump      // 1 (less than)
-```
-
-### Memory
-
-```pascal
-mem 1 .         //store 1 into the memory
-mem , dump      //read from memory one byte
-```
-
-### System
-
-```pascal
-1 //1 arg
-2 //2 arg
-3 //n arg
-1 //syscall number
-syscall3 //3 you can change on 2, 1, 4, 5, 6
-//syscall2 syscall3 syscall1 syscall4 syscall5 syscall6
-```
-
-### Bits Operations
-
-```pascal
-4 1 shl //4 << 1
-//4 = 0b00000100
-//4 << 1 = 0b00001000
-//1 = 0b00000001
-1 bor
-9 = if
-	1 dump
-else
-	0 dump
-end
-```
-
-### Stack Operations
-
-```pascal
-4 1 swap dump dump             //print: 1 4
-5 10 over dump dump dump       //print: 5 10 5
-1 "Hello World!" 1 syscall3   //print: Hello World!
-mem 'a' . 1 mem 1 1 syscall3  //print: a
-```
-
-### Macros
-
-```pascal
-macro write
-	mem ,
-	over mem swap .
-	swap drop swap
-	1 swap
-	mem , 1 syscall3
-	mem swap .
-end
-
-"Hello World!\n" write      //print Hello World!(new_line)
-```
-
-### Dependencies
-
-```pascal
-include "io.arth"
-
-"Hello World!\n" writef    //writef its write and free_string automaticly
-```
+Examples in the `examples` folder
 
 ---
 

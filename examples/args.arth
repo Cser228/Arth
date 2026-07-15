@@ -1,5 +1,25 @@
 include "io.arth"
 
+//Method with instructions `argc` and `argv`
+
+argv argc
+"Argc: " writef
+dup dump
+"Argv: " writef
+
+while dup 0 > do
+	"\n\t" writef
+	over ,64 dup strlen writef
+
+	1 - swap 8 + swap
+end drop drop
+
+
+"\n\n" writef
+
+
+//Method with stack
+
 "Argc: " writef
 dump
 "Argv: " writef
@@ -8,3 +28,4 @@ while dup 0 > do
 	"\n\t" writef
 	dup strlen writef
 end
+"\n" writef
