@@ -3,3 +3,15 @@
 else
   0 dump
 end
+
+10 5 > 10 10 = and if
+	1 dump      // 1
+else
+	0 dump
+end
+
+10 5 < 10 10 = or if
+	1 dump      // 1
+else
+	0 dump
+end

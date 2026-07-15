@@ -6,3 +6,4 @@
 10 2 / dump                       // 5
 3 2 mod dump                      // 1
 1 0 or dump                       // 1
+0 0 1 print print print           // 100

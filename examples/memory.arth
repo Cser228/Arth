@@ -1,2 +1,11 @@
 mem 1 .
 mem , dump      // 1
+
+"a" drop drop
+mems , dump     // 97
+
+mems mems_free dump dump       // mems_free = mems + 1
+
+1 free_string
+
+mems mems_free dump dump       // mems_free = mems
