@@ -3,19 +3,61 @@ format ELF64 executable
 segment readable executable
 
 _start:
-	mov rax, msg
-	mov rdi, msg_len
-	call string_to_C
-	
+	mov [args_ptr], rsp
+
+	mov rax, qword [args_ptr]
+	add rax, 8
+
+	mov rax, qword [rax]
+	call strlen_C
 	mov rsi, rax
-	mov rdx, 6
-	mov rax, 1
-	mov rdi, 1
-	syscall
+	mov rdx, rdi
+	call write
 
 	mov rax, 60
 	mov rdi, 0
 	syscall
+
+;char *int_to_string(uint64_t n)
+;n = rax
+;ret string = rax
+;ret string_len = rdi
+int_to_string:
+	;inic stack
+    push rbp
+    mov rbp, rsp
+    sub rsp, 32
+
+    mov rcx, 10
+    mov rdi, rsp
+    add rdi, 31
+    mov byte [rdi], 0
+    dec rdi
+    test rax, rax
+    jnz .convert
+    mov byte [rdi], '0'
+    dec rdi
+    jmp .done
+
+.convert:
+    xor rdx, rdx
+    div rcx
+    add dl, '0'
+    mov [rdi], dl
+    dec rdi
+    test rax, rax
+    jnz .convert
+
+.done:
+    inc rdi
+    mov rax, rdi
+    mov rsi, rsp
+    add rsi, 31
+    sub rsi, rdi
+    mov rdi, rsi
+    mov rsp, rbp
+    pop rbp
+    ret
 
 ;GET
 ;rax = c string
@@ -55,6 +97,12 @@ strlen_C:
 	pop r9
 	pop r8
 
+	ret
+
+write:
+	mov rax, 1
+	mov rdi, 1
+	syscall
 	ret
 
 ;GET
@@ -128,3 +176,5 @@ msg db "hello"
 msg_len = $ - msg
 
 newline_character db 10
+
+args_ptr rq 1

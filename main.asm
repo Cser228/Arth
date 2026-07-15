@@ -38,7 +38,7 @@ _start:
 	mov rbp, rsp
 	sub rsp, 256
 
-	mov r14, mlva_end
+	mov r14, mlva
 
 	mov byte [rbp-100], 3
 	mov qword [rbp-108], 0
@@ -50,12 +50,12 @@ _start:
 	;get argc
     mov r8, qword [rbp+8]
 
-	sub r14, 8
 	mov qword [r14], r8
+	add r14, 8
 
 	mov rax, qword [rbp+16]
-	sub r14, 8
 	mov qword [r14], rax
+	add r14, 8
 
     ;if argc == 1
     cmp r8, 1
@@ -92,8 +92,8 @@ _start:
 	mov rax, qword [r13]
 	add r13, 8
 
-	sub r14, 8
 	mov qword [r14], rax
+	add r14, 8
 
 	call strlen_C
 
@@ -203,8 +203,8 @@ _start:
 	mov rax, qword [r13]
 	add r13, 8
 
-	sub r14, 8
 	mov qword [r14], rax
+	add r14, 8
 
 	push r8
 	call read_file_C
@@ -239,6 +239,9 @@ _start:
 	mov rax, qword [r13]
 	add r13, 8
 
+	mov qword [r14], rax
+	add r14, 8
+
 	mov qword [rbp-108], rax
 	mov byte [rbp-109], 0
 
@@ -253,6 +256,9 @@ _start:
 
 	mov rax, qword [r13]
 	add r13, 8
+
+	mov qword [r14], rax
+	add r14, 8
 
 	mov qword [rbp-108], rax
 	mov byte [rbp-109], 2
@@ -269,6 +275,9 @@ _start:
 	mov rax, qword [r13]
 	add r13, 8
 
+	mov qword [r14], rax
+	add r14, 8
+
 	mov qword [rbp-108], rax
 	mov byte [rbp-109], 1
 
@@ -281,17 +290,19 @@ _start:
 	jmp .args_condition
 
 .add_mlv_args:
-	;while r14 != mlva_end
-	cmp r14, mlva_end
-	jne .add_mlv_args_while
+	;while r14 >= mlva
+	cmp r14, mlva
+	jae .add_mlv_args_while
 
 	jmp .inic_all
 
 .add_mlv_args_while:
-	sub r12, 8
 	mov rax, qword [r14]
+
+	sub r12, 8
 	mov qword [r12], rax
-	add r14, 8
+
+	sub r14, 8
 
 	jmp .add_mlv_args
 
@@ -305,8 +316,7 @@ _start:
 	;inic stack my language
 	mov r12, mlv_end
 
-	sub r12, 8
-	mov qword [r12], 0
+	mov qword [r14], 0
 
 	cmp byte [rbp-100], 1
 	je .add_mlv_args
@@ -4476,6 +4486,100 @@ free_string_my:
 
 	jmp command_finish
 
+argc_my:
+	cmp byte [rbp-100], 0
+	je .com
+
+	mov rdi, mlva
+	mov rax, qword [rdi]
+
+	;push mlv
+	sub r12, 8
+	mov qword [r12], rax
+
+	jmp command_finish
+
+.com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
+	mov rsi, argc_com
+	mov rcx, argc_com_len
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	jmp command_finish
+
+argv_my:
+	cmp byte [rbp-100], 0
+	je .com
+
+	mov rax, mlva
+	add rax, 8
+
+	;push mlv
+	sub r12, 8
+	mov qword [r12], rax
+
+	jmp command_finish
+
+.com:
+	;
+	inc dword [rbp-133]
+
+	mov rsi, asm_gen_block_start
+	mov rdi, r14
+	mov rcx, asm_gen_block_start_len
+	rep movsb
+	mov r14, rdi
+
+	mov rax, 0
+	mov eax, dword [rbp-133]
+	call int_to_string
+	mov rsi, rax
+	mov rcx, rdi
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	mov byte [r14], ':'
+	inc r14
+
+	mov byte [r14], 10
+	inc r14
+	;
+
+	mov rsi, argv_com
+	mov rcx, argv_com_len
+	mov rdi, r14
+	rep movsb
+	mov r14, rdi
+
+	jmp command_finish
+
 do_command:
 	;if word_len == 0
 	cmp byte [rbp-13], 0
@@ -4970,6 +5074,22 @@ do_command:
 	call strcmp
 	cmp rax, 1
 	je free_string_my
+
+	; argc
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "argc"
+	call strcmp
+	cmp rax, 1
+	je argc_my
+
+	; argv
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "argv"
+	call strcmp
+	cmp rax, 1
+	je argv_my
 
 	;check if there is in macro names stack
 	mov r8, qword [rbp-56]
@@ -5485,7 +5605,6 @@ mlv_end:
 
 ;stack for mlv arguments
 mlva rq 1250
-mlva_end:
 
 ;if stack
 if_stack rb 10000
@@ -5560,9 +5679,9 @@ include_dop_end:
 stat_buff rb 144
 
 ;LANGUAGE VARIABLES
-asm_gen_start db "format ELF64", 10, "public _start", 10, 10, "section '.text' executable", 10, 10, "int_to_string:", 10, "    push rbp", 10, "    mov rbp, rsp", 10, "    sub rsp, 32", 10, "    mov rcx, 10", 10, "    mov rdi, rsp", 10, "    add rdi, 31", 10, "    mov byte [rdi], 0", 10, "    dec rdi", 10, "    test rax, rax", 10, "    jnz .convert", 10, "    mov byte [rdi], '0'", 10, "    dec rdi", 10, "    jmp .done", 10, ".convert:", 10, "    xor rdx, rdx", 10, "    div rcx", 10, "    add dl, '0'", 10, "    mov [rdi], dl", 10, "    dec rdi", 10, "    test rax, rax", 10, "    jnz .convert", 10, ".done:", 10, "    inc rdi", 10, "    mov rax, rdi", 10, "    mov rsi, rsp", 10, "    add rsi, 31", 10, "    sub rsi, rdi", 10, "    mov rdi, rsi", 10, "    mov rsp, rbp", 10, "    pop rbp", 10, "    ret", 10, 10, "write:", 10, "    mov rax, 1", 10, "    mov rdi, 1", 10, "    syscall", 10, "    ret", 10, 10, "_start:", 10, "    mov r14, mems_my", 10, 10
+asm_gen_start db "format ELF64", 10, "public _start", 10, 10, "section '.text' executable", 10, 10, "int_to_string:", 10, "    push rbp", 10, "    mov rbp, rsp", 10, "    sub rsp, 32", 10, "    mov rcx, 10", 10, "    mov rdi, rsp", 10, "    add rdi, 31", 10, "    mov byte [rdi], 0", 10, "    dec rdi", 10, "    test rax, rax", 10, "    jnz .convert", 10, "    mov byte [rdi], '0'", 10, "    dec rdi", 10, "    jmp .done", 10, ".convert:", 10, "    xor rdx, rdx", 10, "    div rcx", 10, "    add dl, '0'", 10, "    mov [rdi], dl", 10, "    dec rdi", 10, "    test rax, rax", 10, "    jnz .convert", 10, ".done:", 10, "    inc rdi", 10, "    mov rax, rdi", 10, "    mov rsi, rsp", 10, "    add rsi, 31", 10, "    sub rsi, rdi", 10, "    mov rdi, rsi", 10, "    mov rsp, rbp", 10, "    pop rbp", 10, "    ret", 10, 10, "write:", 10, "    mov rax, 1", 10, "    mov rdi, 1", 10, "    syscall", 10, "    ret", 10, 10, "_start:", 10, "    mov r14, mems_my", 10, "    mov [args_ptr], rsp", 10, 10
 asm_gen_start_len = $ - asm_gen_start
-asm_gen_end db "    ;===exit===", 10, "    mov rax, 60", 10, "    mov rdi, 0", 10, "    syscall", 10, 10, "section '.bss' writable", 10, "mem_my rb 5000", 10, "mems_my rb 5000", 10, 10, "section '.data' writable", 10, "newline_character db 10", 10
+asm_gen_end db "    ;===exit===", 10, "    mov rax, 60", 10, "    mov rdi, 0", 10, "    syscall", 10, 10, "section '.bss' writable", 10, "mem_my rb 5000", 10, "mems_my rb 5000", 10, "args_ptr rq 1", 10, 10, "section '.data' writable", 10, "newline_character db 10", 10
 asm_gen_end_len = $ - asm_gen_end
 
 asm_gen_end_strmy db "str_"
@@ -5709,3 +5828,8 @@ do_com db "    ;===do===", 10, "    pop rax", 10, "    test rax, rax", 10, "    
 do_com_len = $ - do_com
 endwhile_com db "    ;===end while===", 10, "    jmp while_"
 endwhile_com_len = $ - endwhile_com
+
+argc_com db "    ;===argc===", 10, "    mov rax, [args_ptr]", 10, "    mov rax, [rax]", 10, "    push rax", 10, 10
+argc_com_len = $ - argc_com
+argv_com db "    ;===argv===", 10, "    mov rax, [args_ptr]", 10, "    add rax, 8", 10, "    push rax", 10, 10
+argv_com_len = $ - argv_com

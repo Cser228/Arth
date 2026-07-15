@@ -1,0 +1,10 @@
+include "io.arth"
+
+"Argc: " writef
+dump
+"Argv: " writef
+
+while dup 0 > do
+	"\n\t" writef
+	dup strlen writef
+end

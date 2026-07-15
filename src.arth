@@ -1,1 +1,23 @@
+include "io.arth"
 
+/*
+argv argc
+
+while dup 0 > do
+	over ,64 dup strlen writef
+	"\n" writef
+
+	1 - swap 8 + swap
+end drop drop
+*/
+
+/*
+"Argc: " writef
+dump
+"Argv: " writef
+
+while dup 0 > do
+	"\n\t" writef
+	dup strlen writef
+end
+*/
