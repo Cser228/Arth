@@ -38,6 +38,8 @@ _start:
 	mov rbp, rsp
 	sub rsp, 256
 
+	mov r14, mlva_end
+
 	mov byte [rbp-100], 3
 	mov qword [rbp-108], 0
 	mov qword [rbp-117], include_dop_end
@@ -47,6 +49,13 @@ _start:
 
 	;get argc
     mov r8, qword [rbp+8]
+
+	sub r14, 8
+	mov qword [r14], r8
+
+	mov rax, qword [rbp+16]
+	sub r14, 8
+	mov qword [r14], rax
 
     ;if argc == 1
     cmp r8, 1
@@ -82,6 +91,10 @@ _start:
 	;get *argv
 	mov rax, qword [r13]
 	add r13, 8
+
+	sub r14, 8
+	mov qword [r14], rax
+
 	call strlen_C
 
 	mov r11, rax
@@ -190,6 +203,9 @@ _start:
 	mov rax, qword [r13]
 	add r13, 8
 
+	sub r14, 8
+	mov qword [r14], rax
+
 	push r8
 	call read_file_C
 	pop r8
@@ -264,12 +280,42 @@ _start:
 
 	jmp .args_condition
 
+.add_mlv_args:
+	;while r14 != mlva_end
+	cmp r14, mlva_end
+	jne .add_mlv_args_while
+
+	jmp .inic_all
+
+.add_mlv_args_while:
+	sub r12, 8
+	mov rax, qword [r14]
+	mov qword [r12], rax
+	add r14, 8
+
+	jmp .add_mlv_args
+
 .after_args:
+	push rax
+	push rdi
+
 	cmp byte [rbp-100], 3
 	je .where_mode
 	
 	;inic stack my language
 	mov r12, mlv_end
+
+	sub r12, 8
+	mov qword [r12], 0
+
+	cmp byte [rbp-100], 1
+	je .add_mlv_args
+
+	jmp .inic_all
+
+.inic_all:
+	pop rdi
+	pop rax
 
 	;inic memory for user string
 	mov r13, mfus
@@ -381,7 +427,46 @@ _start:
 	cmp byte [rbp-100], 0
 	je .com_finish
 
-	;go to while
+	;DEBUG
+	;mov rax, r12
+	;call int_to_string
+	;mov rsi, rax
+	;mov rdx, rdi
+	;call write
+	;mov rsi, newline_character
+	;mov rdx, 1
+	;call write
+
+	;mov rax, mlv_end
+	;call int_to_string
+	;mov rsi, rax
+	;mov rdx, rdi
+	;call write
+	;mov rsi, newline_character
+	;mov rdx, 1
+	;call write
+
+	;mov rax, 0
+	;mov eax, dword [rbp-12]
+	;call int_to_string
+	;mov rsi, rax
+	;mov rdx, rdi
+	;call write
+	;mov rsi, newline_character
+	;mov rdx, 1
+	;call write
+
+	;mov rax, qword [rbp-8]
+	;call int_to_string
+	;mov rsi, rax
+	;mov rdx, rdi
+	;call write
+	;mov rsi, newline_character
+	;mov rdx, 1
+	;call write
+	;DEBUG
+
+	;go for while
 	jmp go_for_line
 
 .com_finish:
@@ -3553,11 +3638,6 @@ push_str_my:
 	jmp .while_condition
 
 .its_backside_flash:
-	;DEBUG
-	;mov rsi, newline_character
-	;mov rdx, 1
-	;call write
-
 	mov rdi, qword [rbp-21]
 	inc rdi
 
@@ -3706,40 +3786,10 @@ macro_save_name:
 	jmp command_finish
 
 include_my:
-	;DEBUG
-	;push r8
-	;mov r8, qword [rbp-117]
-	;jmp .debug
-
 	;set include next word my 1
 	mov byte [rbp-98], 1
 
 	jmp command_finish
-
-.debug:
-	;while rbp-117 != include_dop_end
-	cmp r8, include_dop_end
-	jne .while
-
-	pop r8
-	jmp command_finish
-
-.while:
-	;pop rbp-117
-	mov rax, qword [r8]
-	add r8, 8
-
-	call strlen_C
-
-	mov rsi, pushchar_com
-	mov rdx, pushchar_com_len
-	call write
-
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	jmp .debug
 
 include_file_name:
 	;set include next word my 0
@@ -4427,15 +4477,6 @@ free_string_my:
 	jmp command_finish
 
 do_command:
-	;DEBUG
-	;mov rsi, qword [rbp-21]
-	;mov rdx, 0
-	;mov dl, byte [rbp-13]
-	;call write
-	;mov rsi, newline_character
-	;mov rdx, 1
-	;call write
-
 	;if word_len == 0
 	cmp byte [rbp-13], 0
 	je command_finish
@@ -5441,6 +5482,10 @@ segment readable writable
 ;my language variables
 mlv rq 1250
 mlv_end:
+
+;stack for mlv arguments
+mlva rq 1250
+mlva_end:
 
 ;if stack
 if_stack rb 10000

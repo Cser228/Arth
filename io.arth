@@ -5,8 +5,18 @@ macro % mod end
 
 
 
+macro div / end
+
+
+
 macro inc64
 	dup ,64 1 + .64
+end
+
+
+
+macro exit
+	60 syscall1
 end
 
 
