@@ -4,5 +4,6 @@ c.o
 c.asm
 output
 test
+test.asm
 main2.asm
 main2

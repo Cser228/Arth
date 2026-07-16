@@ -3,7 +3,6 @@ main: main.asm
 
 test: test.asm
 	fasm test.asm
-	ld test.o -o test
 
-all: main.asm test.asm
-	main test
+main2: main2.asm
+	fasm main2.asm

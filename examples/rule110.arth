@@ -17,9 +17,9 @@ mem ARD_SIZE + 1 .
 	end
 	drop
 
-	1 mem BOARD_SIZE + BOARD_SIZE 1 + 1 syscall3
+	1 mem BOARD_SIZE + BOARD_SIZE 1 + 1 syscall3 drop
 	mem BOARD_SIZE + '\n' .
-	1 mem BOARD_SIZE + 1 1 syscall3
+	1 mem BOARD_SIZE + 1 1 syscall3 drop
 
 	//pattern
 	mem , 1 shl

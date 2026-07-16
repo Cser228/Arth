@@ -154,12 +154,12 @@ For simulate:
 
 | Syntax | Description |
 |--------|-------------|
-| `syscall1` | Perform the syscall1 |
-| `syscall2` | Perform the syscall2 |
-| `syscall3` | Perform the syscall3 |
-| `syscall4` | Perform the syscall4 |
-| `syscall5` | Perform the syscall5 |
-| `syscall6` | Perform the syscall6 |
+| `syscall1` | Perform the syscall1 and put into the stack return of syscall |
+| `syscall2` | Perform the syscall2 and put into the stack return of syscall |
+| `syscall3` | Perform the syscall3 and put into the stack return of syscall |
+| `syscall4` | Perform the syscall4 and put into the stack return of syscall |
+| `syscall5` | Perform the syscall5 and put into the stack return of syscall |
+| `syscall6` | Perform the syscall6 and put into the stack return of syscall |
 
 ### Macros
 | Syntax | Description |

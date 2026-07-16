@@ -1,5 +1,5 @@
-4 1 shl                   //8
-1 bor                     //9
+4 1 shl dup dump          //8
+1 bor dup dump            //9
 9 = if
 	1 dump                //1
 else
