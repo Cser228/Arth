@@ -37,22 +37,29 @@ include "io.arth"
 
 ### Compile/Interpritate the code
 
-Compile or Interpritate your code!
-(For compile you need the fasm on your linux)
+You can either compile or simulate your code.
+> (For now, compilation need FASM installed on Linux.)
 
-For compile:
+Compile:
 ```bash
 ./arth -f hello.arth -com
 ```
 
-For simulate:
+Simulate:
 ```bash
 ./arth -f hello.arth -sim
 ```
 
 ---
 
-## Flags for program
+## 🛡️ Static Type Checking (STC)
+
+Unlike traditional Forth, **Arth** features built-in **Static Type Checking**. 
+The compiler simulates the stack at compile-time to ensure that operations receive the correct types of arguments.
+
+---
+
+## 🚩 Flags for program
 
 | Flag | Description |
 |------|-------------|
@@ -115,8 +122,6 @@ For simulate:
 | `or` | Or | `1 0 or` → stack: `[1]` |
 | `and` | And | `1 0 or` → stack: `[0]` |
 
-> All comparison operators pop two values and push `1` (true) or `0` (false).
-
 ### I/O
 
 | Syntax | Description | Example |
@@ -134,14 +139,14 @@ For simulate:
 
 ### Memory
 
-| Syntax | Description |
-|--------|-------------|
-| `mem` | Push the address of the memory buffer for reading/writing |
-| `mems` | Push the address of the memory buffer, where interpritator put strings, inicializated by "`string`", you can reading/writing |
-| `mems_free` | Push the address of the free memory buffer, where interpritator put strings, inicializated by "`string`", you can reading/writing |
-| `.` | Store the given byte at the given address |
-| `,` | Load a byte from the given address |
-| `free_string` | Strings pushes like this `"Hello"` storage in the other buffer of memory and so you need free memory you allocated |
+| Syntax | Description | Example |
+|--------|-------------|---------|
+| `mem` | Push the address of the memory buffer for reading/writing | `mem` → stack: `[12345678]` |
+| `mems` | Push the address of the memory buffer, where interpritator put strings, inicializated by "`string`", you can reading/writing | `mems` → stack: `[87654321]` |
+| `mems_free` | Push the address of the free memory buffer, where interpritator put strings, inicializated by "`string`", you can reading/writing | `mems_free` → stack: `[87654321]` |
+| `.` | Store the given byte at the given address | `mem 1 .` → stack: `[]`, memory: `[1]` |
+| `,` | Load a byte from the given address | `mem ,` → stack: `[1]` |
+| `free_string` | Strings pushes like this `"Hello"` storage in the other buffer of memory and so you need free memory you allocated | `"abc" drop drop 3 free_string` → stack: `[]`, `mems` == `mems_free` |
 
 ### Comments
 
@@ -162,26 +167,32 @@ For simulate:
 | `syscall5` | Perform the syscall5 and put into the stack return of syscall |
 | `syscall6` | Perform the syscall6 and put into the stack return of syscall |
 
+> Example: `1 "Hello World!\n" 1 syscall3`, "" put addr and len, without "": `1 12345678 12 1 syscall3`
+
 ### Macros
 | Syntax | Description |
 |--------|-------------|
-| `macro` | You can write whatever and name it somehow, and when you write name of macro, interpritator auto replace name with implementation |
+| `macro` | You can write whatever and name it somehow, and when you write name of macro, interpritator/compilator auto replace name with implementation |
+
+> Example: `macro hello_world 1 "Hello World!\n" 1 syscall3 end hello_world`
 
 ### Dependencies
 | Syntax | Description |
 |--------|-------------|
 | `include` | Add code in the file to this file |
 
+> Its like file1.getString() + file2.getString()
+
 ### Arguments
-| Syntax | Description |
-|--------|-------------|
-| `argc` | Push into the stack count of arguments |
-| `argv` | Push into the stack a list with arguments |
+| Syntax | Description | Example |
+|--------|-------------|---------|
+| `argc` | Push into the stack count of arguments | `argc` → stack: `[1]` |
+| `argv` | Push into the stack a pointer to list of strings (arguments) | `argv` → stack: `[12345678]`
 
 ---
 
 ## 💡 Examples
-Examples in the `examples` folder
+More examples in the `examples` folder
 
 ---
 
