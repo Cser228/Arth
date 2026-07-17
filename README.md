@@ -174,6 +174,7 @@ For simulate:
 
 ### Arguments
 | Syntax | Description |
+|--------|-------------|
 | `argc` | Push into the stack count of arguments |
 | `argv` | Push into the stack a list with arguments |
 
