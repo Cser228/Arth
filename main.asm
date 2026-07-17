@@ -47,6 +47,7 @@ _start:
 	mov byte [rbp-118], 0
 	mov byte [rbp-119], 0
 	mov byte [rbp-128], 1
+	mov qword [rbp-165], 0
 
 	;get argc
     mov r8, qword [rbp+8]
@@ -75,6 +76,7 @@ _start:
 ;r10 - src_len
 ;r11/r12 - argv string
 ;r13 - for pop
+;r14 - mlva
 .args_condition:
 	;while argc != 0
 	cmp r8, 0
@@ -194,15 +196,9 @@ _start:
 	jmp .end
 
 .include_folder:
-	mov rax, r11
-	mov rdi, r12
-	call string_to_C
-
-	mov rdi, rax
-
 	mov rax, qword [rbp-117]
 	sub rax, 8
-	mov qword [rax], rdi
+	mov qword [rax], r15
 	mov qword [rbp-117], rax
 
 	jmp .end
@@ -219,6 +215,14 @@ _start:
 
 	mov qword [r14], rax
 	add r14, 8
+
+	push rax
+
+	call strlen_C
+	call string_to_C
+	mov qword [rbp-165], rax
+
+	pop rax
 
 	push r8
 	call read_file_C
@@ -323,7 +327,7 @@ _start:
 .after_args:
 	push rax
 	push rdi
-
+	
 	cmp byte [rbp-100], 3
 	je .where_mode
 	
@@ -381,12 +385,20 @@ _start:
 
 	;while stack OR in stc for macro save word lac for error
 	mov qword [rbp-39], while_stack_end
-	;while stack for len OR for com its counter for while_
+
+
+	;while stack for len OR for com its counter for while_ OR in stc its
 	mov qword [rbp-47], while_stack_len_end
 
 	mov rax, qword [rbp-47]
 	mov rdi, 1
 	cmp byte [rbp-100], 0
+	cmove rax, rdi
+	mov qword [rbp-47], rax
+
+	mov rax, qword [rbp-47]
+	mov rdi, stc_include_save_src_end
+	cmp byte [rbp-128], 1
 	cmove rax, rdi
 	mov qword [rbp-47], rax
 
@@ -438,7 +450,7 @@ _start:
 	;bool
 	;mov byte [rbp-119], -r ARGS
 
-	;char * save src for all time
+	;char * save src
 	mov rax, qword [rbp-8]
 	mov qword [rbp-127], rax
 
@@ -464,6 +476,9 @@ _start:
 	;save src_len on all time
 	mov eax, dword [rbp-12]
 	mov dword [rbp-157], eax
+
+	;name of the -f
+	;mov qword [rbp-165], "" ARGS
 
 	;add firsts strings for compilation file if select compilation mode
 	cmp byte [rbp-100], 0
@@ -752,9 +767,9 @@ count_lines_and_characters:
 	jmp .cond
 
 .cond:
-	;while word != _src
+	;while word >= _src
 	cmp r8, qword [rbp-127]
-	ja .while
+	jae .while
 
 	jmp .end
 
@@ -796,12 +811,24 @@ count_lines_and_characters:
 	sub rdi, r8
 	inc rdi
 
+	mov rsi, rdi
+	dec rsi
+
+	cmp rax, 1
+	cmove rdi, rsi
+
 	pop r8
 	ret
 
 .end_with_newline:
 	mov rax, rsi
 	pop rdi
+
+	mov rsi, rdi
+	dec rsi
+
+	cmp rax, 1
+	cmove rdi, rsi
 
 	pop r8
 	ret
@@ -867,7 +894,7 @@ string_to_C:
 	jmp .end
 
 .error:
-	strcmp_const "mmap error"
+	strcmp_const "This is a compiler error. Please try run compiler again. If its don't help, write author, thanks!"
 	mov rax, rdi
 	mov rdi, rdx
 	
@@ -987,15 +1014,16 @@ sum_two_strings:
 ;rax = a
 ;rdi = a_len
 free_allocated:
-    push rbp
-    mov rbp, rsp
+	push r11
+	push rcx
 
     mov rsi, rdi
     mov rdi, rax
     mov rax, 11
     syscall
 
-    leave
+	pop rcx
+	pop r11
     ret
 
 write:
@@ -1844,35 +1872,6 @@ end_my:
 
 	jmp command_finish
 
-.error_below_ifstack:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: unexpected `end`, no matching block to close"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
-
 .com:
 	mov rax, qword [rbp-39]
 	mov rdi, qword [rax]
@@ -2488,64 +2487,6 @@ do_my:
 
 	jmp command_finish
 
-.error_type:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: `do` instruction expects `bool` argument"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `do` instruction"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
-
 .com:
 	;
 	inc dword [rbp-133]
@@ -2615,7 +2556,7 @@ do_my:
 comment_my:
 	mov byte [rbp-129], 1
 
-	jmp ssg
+	jmp command_finish
 
 mem_my:
 	cmp byte [rbp-100], 0
@@ -4044,10 +3985,6 @@ include_file_name:
 	mov r8, rax
 	mov r9, rdi
 
-	;if rax == 0
-	cmp rax, 0
-	je .error_file
-
 	push rax
 	push rdi
 	mov rax, qword [rbp-8]
@@ -4169,11 +4106,50 @@ include_file_name:
 	jmp .not_found
 
 .error_file:
-	strcmp_const "ERROR `include` operation: this file don't exists"
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
 	mov rax, rdi
-	mov rdi, rdx
-	
-	jmp exit_with_reason
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: `include` instruction, this file doesn't exists, `"
+	mov rsi, rdi
+	call write
+
+	mov rsi, qword [rbp-21]
+	movzx rdx, byte [rbp-13]
+	call write
+
+	strcmp_const "`"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
 
 multi_my:
 	cmp byte [rbp-100], 0
@@ -4657,7 +4633,16 @@ free_string_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -4686,7 +4671,16 @@ free_string_my:
 	jmp exit_f
 
 .error_type:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -4892,7 +4886,16 @@ stc_dup_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -4942,7 +4945,16 @@ stc_two_dup_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -4983,7 +4995,16 @@ stc_drop_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -5029,7 +5050,16 @@ stc_swap_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -5075,7 +5105,16 @@ stc_over_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -5168,7 +5207,16 @@ stc_shr_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -5197,7 +5245,16 @@ stc_shr_my:
 	jmp exit_f
 
 .error_type:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -5306,7 +5363,16 @@ stc_shl_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -5335,7 +5401,16 @@ stc_shl_my:
 	jmp exit_f
 
 .error_type:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -5486,7 +5561,16 @@ stc_bor_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -5515,7 +5599,16 @@ stc_bor_my:
 	jmp exit_f
 
 .error_type:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -5666,7 +5759,16 @@ stc_band_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -5695,7 +5797,16 @@ stc_band_my:
 	jmp exit_f
 
 .error_type:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -5822,7 +5933,16 @@ stc_plus_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -5851,7 +5971,16 @@ stc_plus_my:
 	jmp exit_f
 
 .error_type:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -5978,7 +6107,16 @@ stc_minus_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -6007,7 +6145,16 @@ stc_minus_my:
 	jmp exit_f
 
 .error_type:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -6086,7 +6233,16 @@ stc_multi_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -6115,7 +6271,16 @@ stc_multi_my:
 	jmp exit_f
 
 .error_type:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -6215,7 +6380,16 @@ stc_div_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -6244,7 +6418,16 @@ stc_div_my:
 	jmp exit_f
 
 .error_type:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -6344,7 +6527,16 @@ stc_mod_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -6373,7 +6565,16 @@ stc_mod_my:
 	jmp exit_f
 
 .error_type:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -6473,7 +6674,16 @@ stc_equal_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -6502,7 +6712,16 @@ stc_equal_my:
 	jmp exit_f
 
 .error_type:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -6602,7 +6821,16 @@ stc_not_equal_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -6631,7 +6859,16 @@ stc_not_equal_my:
 	jmp exit_f
 
 .error_type:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -6731,7 +6968,16 @@ stc_above_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -6760,7 +7006,16 @@ stc_above_my:
 	jmp exit_f
 
 .error_type:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -6860,7 +7115,16 @@ stc_below_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -6889,7 +7153,16 @@ stc_below_my:
 	jmp exit_f
 
 .error_type:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -6989,7 +7262,16 @@ stc_above_equal_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -7018,7 +7300,16 @@ stc_above_equal_my:
 	jmp exit_f
 
 .error_type:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -7118,7 +7409,16 @@ stc_below_equal_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -7147,7 +7447,16 @@ stc_below_equal_my:
 	jmp exit_f
 
 .error_type:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -7229,7 +7538,16 @@ stc_or_my:
     jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -7258,7 +7576,16 @@ stc_or_my:
 	jmp exit_f
 
 .error_type:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -7340,7 +7667,16 @@ stc_and_my:
     jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -7369,7 +7705,16 @@ stc_and_my:
 	jmp exit_f
 
 .error_type:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -7425,7 +7770,16 @@ stc_dump_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -7465,7 +7819,16 @@ stc_print_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -7522,7 +7885,16 @@ stc_if_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -7551,7 +7923,16 @@ stc_if_my:
 	jmp exit_f
 
 .error_type:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -7664,7 +8045,16 @@ stc_end_my:
 	jmp command_finish
 
 .error_stcsave:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -7810,7 +8200,16 @@ stc_store_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -7839,7 +8238,16 @@ stc_store_my:
 	jmp exit_f
 
 .error_type:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -7901,7 +8309,16 @@ stc_load_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -7930,7 +8347,16 @@ stc_load_my:
 	jmp exit_f
 
 .error_type:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -7983,7 +8409,16 @@ stc_free_string_my:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -8012,7 +8447,16 @@ stc_free_string_my:
 	jmp exit_f
 
 .error_type:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -8061,7 +8505,16 @@ stc_syscall_one:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -8104,7 +8557,16 @@ stc_syscall_two:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -8148,7 +8610,16 @@ stc_syscall_three:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -8193,7 +8664,16 @@ stc_syscall_four:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -8239,7 +8719,16 @@ stc_syscall_five:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -8286,7 +8775,16 @@ stc_syscall_six:
 	jmp command_finish
 
 .error_below:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -8363,8 +8861,195 @@ stc_macro_save_name:
 	jmp command_finish
 
 stc_include_my:
-	strcmp_const "stc_include_my: not implemented"
+	;set include next word my 1
+	mov byte [rbp-98], 1
+
+	jmp command_finish
+
+stc_include_file_name:
+	;save name
+	mov rdx, qword [rbp-47]
+	sub rdx, 8
+	mov rax, qword [rbp-165]
+	mov qword [rdx], rax
+	mov qword [rbp-47], rdx
+
+	mov rax, qword [rbp-8]
+	mov rdi, 0
+	mov edi, dword [rbp-12]
+	call string_to_C
+
+	;save src
+	mov rdx, qword [rbp-47]
+	sub rdx, 8
+	mov qword [rdx], rax
+	mov qword [rbp-47], rdx
+
+	;set include next word my 0
+	mov byte [rbp-98], 0
+
+	;if word[] != "
+	mov rax, qword [rbp-21]
+	cmp byte [rax], 34
+	jne command_finish
+
+	;word++ word_len--
+	inc qword [rbp-21]
+	dec byte [rbp-13]
+
+	;if not exists
+	mov   rax, qword [rbp-21]
+	movzx rdi, byte [rbp-13]
+	call string_to_C
+	push rax
+	mov rdi, rax
+
+	mov rax, 4
+	mov rsi, stat_buff
+	syscall
+
+	test rax, rax
+	js .not_found
+
+	pop rax
+	call strlen_C
+	call free_allocated
+
+	;read_file
+	mov rax, qword [rbp-21]
+	movzx rdi, byte [rbp-13]
+	call read_file
+	
+	jmp .after_read_file
+	
+.not_found:
+	pop rax
+	call strlen_C
+	call free_allocated
+
+	;while [rbp-117] != include_dop_end
+	cmp qword [rbp-117], include_dop_end
+	jne .while
+
+	jmp .error_file
+
+.after_read_file:
+	push rax
+	push rdi
+
+	mov qword [rbp-127], rax
+
+	pop rdi
+	pop rax
+	push rax
+	push rdi
+
+	mov rax, qword [rbp-21]
+	movzx rdi, byte [rbp-13]
+	call string_to_C
+	mov qword [rbp-165], rax
+
+	mov rax, qword [rbp-8]
+	mov rdi, 0
+	mov edi, dword [rbp-12]
+	call free_allocated
+
+	pop rdi
+	pop rax
+
+	mov qword [rbp-8], rax
+	mov dword [rbp-12], edi
+	mov qword [rbp-21], rax
+	mov byte [rbp-13], 0
+
+	jmp go_for_line
+
+.while:
+	;get string
+	mov rdi, qword [rbp-117]
+	mov rax, qword [rdi]
+	call strlen_C
+	mov rsi, qword [rbp-21]
+	movzx rdx, byte [rbp-13]
+	call sum_two_strings
+	call string_to_C
+	push rax
+	mov rdi, rax
+
+	;if not exists
+	mov rax, 4
+	mov rsi, stat_buff
+	syscall
+
+	test rax, rax
+	js .end
+
+	pop rax
+	call strlen_C
+	call free_allocated
+
+	;open
+	mov rdi, qword [rbp-117]
+	mov rax, qword [rdi]
+	call strlen_C
+	mov rsi, qword [rbp-21]
+	movzx rdx, byte [rbp-13]
+	call sum_two_strings
+	call read_file
+
+	jmp .after_read_file
+
+.end:
+	pop rax
+	call strlen_C
+	call free_allocated
+
+	add qword [rbp-117], 8
+
+	jmp .not_found
+
+.error_file:
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
 	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: `include` instruction, this file doesn't exists, `"
+	mov rsi, rdi
+	call write
+
+	mov rsi, qword [rbp-21]
+	movzx rdx, byte [rbp-13]
+	call write
+
+	strcmp_const "`"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
 	call write
 
 	jmp exit_f
@@ -8394,6 +9079,10 @@ stc_do_command:
 	cmp byte [rbp-89], 1
 	je stc_macro_save_name
 
+	;if include next word my == 1
+	cmp byte [rbp-98], 1
+	je stc_include_file_name
+
 	;end
 	mov rax, qword [rbp-21]
 	movzx rsi, byte [rbp-13]
@@ -8406,6 +9095,8 @@ stc_do_command:
 	mov rax, qword [rbp-31]
 	cmp qword [rax], 5
 	je command_finish
+
+
 
 	;its_number(word_now, word_len)
 	mov rax, qword [rbp-21]
@@ -8882,7 +9573,16 @@ stc_checking_macro_names_condition:
 	jmp command_finish
 
 .error_unknown_word:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	call count_lines_and_characters
 	call int_to_string
 	mov rsi, rax
@@ -9507,10 +10207,10 @@ checking_macro_names_condition:
 	jmp command_finish
 
 command_finish:
-	;DEBUG
+	;DEBU
 	;mov r8, r15
 	;jmp .debug
-	;DEBUG
+	;DEBU
 
 	;if src_len == 0
 	cmp dword [rbp-12], 0
@@ -9530,7 +10230,7 @@ command_finish:
 
 	jmp go_for_line
 
-;DEBUG
+;DEBU
 .debug:
 	cmp r8, stc_my_end
 	jne .while
@@ -9570,7 +10270,7 @@ command_finish:
 	call write
 
 	jmp .debug
-;DEBUG
+;DEBU
 
 command_finish_save:
 	;if src_len == 0
@@ -9823,7 +10523,37 @@ go_for_line:
 
 	jmp exit
 
+.recover_src:
+	;recover src
+	mov rdx, qword [rbp-47]
+	mov rax, qword [rdx]
+	call strlen_C
+	mov qword [rbp-8], rax
+	mov dword [rbp-12], edi
+
+	mov rax, qword [rbp-165]
+	call strlen_C
+	call free_allocated
+
+	;recover name
+	mov rdx, qword [rbp-47]
+	add rdx, 8
+	mov rax, qword [rdx]
+	mov qword [rbp-165], rax
+	add rdx, 8
+	mov qword [rbp-47], rdx
+
+	;recover -127
+	mov rax, qword [rbp-8]
+	mov qword [rbp-127], rax
+
+	jmp go_for_line
+
 .finish_stc:
+	;if stc_include_... != end
+	cmp qword [rbp-47], stc_include_save_src_end
+	jne .recover_src
+
 	;check stc stack len > 0
 	mov rax, r15
 	mov rdi, stc_my_end
@@ -9840,6 +10570,7 @@ go_for_line:
 	mov qword [rbp-21], rax                                       ;WORD
 	mov byte [rbp-23], 0                                          ;/*
 	mov qword [rbp-31], if_stack_end                              ;MACRO
+	mov qword [rbp-39], while_stack_end                           ;MACRO
 	mov byte [rbp-48], 0                                          ;"
 	mov qword [rbp-56], mn_end                                    ;MACRO
 	mov qword [rbp-64], mnl_end                                   ;MACRO
@@ -9852,6 +10583,13 @@ go_for_line:
 	mov byte [rbp-99], 0                                          ;'
 	mov byte [rbp-128], 0                                         ;stc
 	mov byte [rbp-129], 0                                         ;//
+
+	mov qword [rbp-47], while_stack_len_end                       ;INCLUDE
+	mov rax, qword [rbp-47]
+	mov rdi, 1
+	cmp byte [rbp-100], 0
+	cmove rax, rdi
+	mov qword [rbp-47], rax
 
 	jmp go_for_line
 
@@ -9996,7 +10734,16 @@ exit_f:
 	jmp exit_f
 
 .macro_while:
-	;1 line 5 character: ...
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
 	mov rax, qword [rbp-21]
 	push rax
 	mov rax, qword [rbp-39]
@@ -10132,6 +10879,9 @@ stc_my_end:
 ;stack for (save stc_my, who save?)
 stc_save rq 10000
 stc_save_end:
+
+stc_include_save_src rq 10000
+stc_include_save_src_end:
 
 ;STC
 
