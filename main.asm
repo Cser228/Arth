@@ -379,7 +379,7 @@ _start:
 	;7 = for skip without while stack
 	mov qword [rbp-31], if_stack_end
 
-	;while stack
+	;while stack OR in stc for macro save word lac for error
 	mov qword [rbp-39], while_stack_end
 	;while stack for len OR for com its counter for while_
 	mov qword [rbp-47], while_stack_len_end
@@ -7595,11 +7595,54 @@ stc_else_my:
 
 	jmp exit_f
 
+stc_end_macro:
+	;pop if_stack
+	add qword [rbp-31], 8
+
+	;if back_stack == mb_end
+	mov rax, qword [rbp-80]
+	cmp rax, mb_end
+	je command_finish
+
+	;src = macro back stack[]
+	mov rax, qword [rbp-80]
+	mov rdi, qword [rax]
+	mov qword [rbp-8], rdi
+
+	;src_len = macro back len stack[]
+	mov rax, qword [rbp-88]
+	mov rdi, qword [rax]
+	mov dword [rbp-12], edi
+
+	;pop macro back stack
+	add qword [rbp-80], 8
+
+	;pop macro back len stack
+	add qword [rbp-88], 8
+
+	jmp command_finish
+
 stc_end_my:
 	mov rax, qword [rbp-31]
 	cmp rax, if_stack_end
-	je .error_below_ifstack
+	je .stc_end_my_normi
 
+	;if last if stack value == 5 or 6
+	mov rax, qword [rbp-31]
+
+	cmp qword [rax], 5
+	je stc_end_macro
+
+	cmp qword [rax], 6
+	je stc_end_macro
+
+	strcmp_const "stc_end_my: unreacheble"
+	mov rsi, rdi
+	call write
+
+	jmp exit_f
+
+.stc_end_my_normi:
 	;if stc_save was be called by if
 	mov rax, qword [rbp-153]
 	cmp byte [rax], 0
@@ -7614,6 +7657,11 @@ stc_end_my:
 	jne .error_stcsave
 
 	jmp .stc_continue
+
+.stc_continue:
+	add qword [rbp-153], 9
+
+	jmp command_finish
 
 .error_stcsave:
 	;1 line 5 character: ...
@@ -7635,40 +7683,6 @@ stc_end_my:
 	call write
 
 	strcmp_const " character: else-less if block is not allowed to alter the types of the arguments on the data stack"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
-
-.stc_continue:
-	add qword [rbp-153], 9
-
-	jmp command_finish
-
-.error_below_ifstack:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: unexpected `end`, no matching block to close"
 	mov rsi, rdi
 	call write
 
@@ -8301,14 +8315,55 @@ stc_syscall_six:
 	jmp exit_f
 
 stc_macro_my:
-	strcmp_const "stc_macro_my: not implemented"
-	mov rsi, rdi
-	call write
+	;set macro next word my 1
+	mov byte [rbp-89], 1
 
-	jmp exit_f
+	;push if stack 5
+	mov rax, qword [rbp-31]
+	sub rax, 8
+	mov qword [rax], 5
+	mov qword [rbp-31], rax
+
+	jmp command_finish
+
+stc_macro_save_name:
+	;set macro next word my 0
+	mov byte [rbp-89], 0
+
+	;push macro names stack word
+	mov rax, qword [rbp-56]
+	sub rax, 8
+	mov rdi, qword [rbp-21]
+	mov qword [rax], rdi
+	mov qword [rbp-56], rax
+
+	;push macro names len stack word_len
+	mov rax, qword [rbp-64]
+	sub rax, 8
+	movzx rdi, byte [rbp-13]
+	mov qword [rax], rdi
+	mov qword [rbp-64], rax
+
+	;push macro implemantation stack (src-1)
+	mov rax, qword [rbp-72]
+	sub rax, 8
+	mov rdi, qword [rbp-8]
+	dec rdi
+	mov qword [rax], rdi
+	mov qword [rbp-72], rax
+
+	;push macro implemantation len stack src_len
+	mov rax, qword [rbp-97]
+	sub rax, 8
+	mov rdi, 0
+	mov edi, dword [rbp-12]
+	mov qword [rax], rdi
+	mov qword [rbp-97], rax
+
+	jmp command_finish
 
 stc_include_my:
-	strcmp_const "stc_macro_my: not implemented"
+	strcmp_const "stc_include_my: not implemented"
 	mov rsi, rdi
 	call write
 
@@ -8327,6 +8382,31 @@ stc_argv_my:
 	jmp command_finish
 
 stc_do_command:
+	;if word_len == 0
+	cmp byte [rbp-13], 0
+	je command_finish
+
+	;comment
+	cmp byte [rbp-23], 1
+	je command_finish
+
+	;if macro next word my == 1
+	cmp byte [rbp-89], 1
+	je stc_macro_save_name
+
+	;end
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "end"
+	call strcmp
+	cmp rax, 1
+	je stc_end_my
+
+	;if last if_stack 5 skip
+	mov rax, qword [rbp-31]
+	cmp qword [rax], 5
+	je command_finish
+
 	;its_number(word_now, word_len)
 	mov rax, qword [rbp-21]
 	movzx rdi, byte [rbp-13]
@@ -8558,13 +8638,7 @@ stc_do_command:
 	je stc_else_my
 
 	; end
-	mov rax, qword [rbp-21]
-	movzx rsi, byte [rbp-13]
-	strcmp_const "end"
-	call strcmp
-	cmp rax, 1
-	je stc_end_my
-
+	;UP
 
 	; while
 	mov rax, qword [rbp-21]
@@ -8722,7 +8796,127 @@ stc_do_command:
 	cmp rax, 1
 	je stc_argv_my
 
+	;check if there is in macro names stack
+	mov r8, qword [rbp-56]
+	mov r9, qword [rbp-64]
+	mov r10, 0
+	jmp stc_checking_macro_names_condition
+
+stc_checking_macro_names_condition:
+	;macro names stack != macro names stack end
+	;macro names len stack != macro names stack end
+	mov rax, mn_end
+	cmp rax, r8
+	je .error_unknown_word
+
+	mov rax, mnl_end
+	cmp rax, r9
+	je .error_unknown_word
+
+	jmp .while
+
+.while:
+	mov rax, qword [r8]
+	mov rdi, qword [rbp-21]
+	mov rsi, qword [r9]
+	movzx rdx, byte [rbp-13]
+
+	call strcmp
+	cmp rax, 1
+	je .find
+
+	add r8, 8
+	add r9, 8
+	inc r10
+
+	jmp stc_checking_macro_names_condition
+
+.find:
+	;push macro back stack src
+	mov rax, qword [rbp-80]
+	sub rax, 8
+	mov rdi, qword [rbp-8]
+	mov qword [rax], rdi
+	mov qword [rbp-80], rax
+
+	;push macro back len stack src_len
+	mov rax, qword [rbp-88]
+	sub rax, 8
+	mov edi, dword [rbp-12]
+	mov qword [rax], rdi
+	mov qword [rbp-88], rax
+
+	;push macro save word lac for error
+	mov rax, qword [rbp-39]
+	sub rax, 8
+	mov rdi, qword [rbp-21]
+	mov qword [rax], rdi
+	mov qword [rbp-39], rax
+
+	;push if stack 6
+	mov rax, qword [rbp-31]
+	sub rax, 8
+	mov qword [rax], 6
+	mov qword [rbp-31], rax
+
+	;get implemantation stack char *
+	mov rax, qword [rbp-72]
+	mov rdi, r10
+	shl rdi, 3
+	add rax, rdi
+
+	;set src = char *
+	mov rdi, qword [rax]
+	mov qword [rbp-8], rdi
+
+	;get implemantation len stack int
+	mov rax, qword [rbp-97]
+	mov rdi, r10
+	shl rdi, 3
+	add rax, rdi
+
+	;set src_len = int
+	mov rdi, qword [rax]
+	mov dword [rbp-12], edi
+
 	jmp command_finish
+
+.error_unknown_word:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: unknown word `"
+	mov rsi, rdi
+	call write
+
+	mov rsi, qword [rbp-21]
+	movzx rdx, byte [rbp-13]
+	call write
+
+	strcmp_const "`"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
 
 do_command:
 	;if word_len == 0
@@ -9243,11 +9437,11 @@ checking_macro_names_condition:
 	;macro names len stack != macro names stack end
 	mov rax, mn_end
 	cmp rax, r8
-	je .error_unknown_word
+	je command_finish
 
 	mov rax, mnl_end
 	cmp rax, r9
-	je .error_unknown_word
+	je command_finish
 
 	jmp .while
 
@@ -9311,43 +9505,6 @@ checking_macro_names_condition:
 	mov dword [rbp-12], edi
 
 	jmp command_finish
-
-.error_unknown_word:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: unknown word `"
-	mov rsi, rdi
-	call write
-
-	mov rsi, qword [rbp-21]
-	movzx rdx, byte [rbp-13]
-	call write
-
-	strcmp_const "`"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 command_finish:
 	;DEBUG
@@ -9681,15 +9838,8 @@ go_for_line:
 	mov dword [rbp-12], edi                                       ;SRC-LEN
 	mov byte [rbp-13], 0                                          ;WORD-LEN
 	mov qword [rbp-21], rax                                       ;WORD
-	mov byte [rbp-22], 0                                          ;MACRO
 	mov byte [rbp-23], 0                                          ;/*
-
-	mov rax, qword [rbp-47]
-	mov rdi, 1
-	cmp byte [rbp-100], 0
-	cmove rax, rdi
-	mov qword [rbp-47], rax
-
+	mov qword [rbp-31], if_stack_end                              ;MACRO
 	mov byte [rbp-48], 0                                          ;"
 	mov qword [rbp-56], mn_end                                    ;MACRO
 	mov qword [rbp-64], mnl_end                                   ;MACRO
@@ -9820,11 +9970,83 @@ exit:
 	jmp exit_f
 
 exit_f:
+	cmp byte [rbp-128], 1
+	je .stc
+
 	;free stack
 	mov rsp, rbp
 	pop rbp
 
 	jmp exit_s
+
+.stc:
+	mov byte [rbp-128], 0
+
+	;write macro save word lac
+	cmp qword [rbp-39], while_stack_end
+	jne .macro_while
+
+	jmp exit_f
+
+.macro_cond:
+	;while macro save word lac != while_stack_end
+	cmp qword [rbp-39], while_stack_end
+	jne .macro_while
+
+	jmp exit_f
+
+.macro_while:
+	;1 line 5 character: ...
+	mov rax, qword [rbp-21]
+	push rax
+	mov rax, qword [rbp-39]
+	mov rdi, qword [rax]
+	add qword [rbp-39], 8
+	mov qword [rbp-21], rdi
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: error in `"
+	mov rsi, rdi
+	call write
+
+	mov rax, qword [rbp-80]
+	mov rdi, qword [rax]
+	add qword [rbp-80], 8
+	mov rax, rdi
+	mov rdi, qword [rbp-21]
+	sub rax, rdi
+
+	mov rdx, rax
+	mov rsi, qword [rbp-21]
+	call write
+
+	strcmp_const "`"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	pop rax
+	mov qword [rbp-21], rax
+
+	jmp .macro_cond
 
 exit_s:
 	;exit
