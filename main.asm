@@ -46,6 +46,7 @@ _start:
 	mov byte [rbp-109], 0
 	mov byte [rbp-118], 0
 	mov byte [rbp-119], 0
+	mov byte [rbp-128], 1
 
 	;get argc
     mov r8, qword [rbp+8]
@@ -164,8 +165,21 @@ _start:
 	cmp rax, 1
 	je .run_after_compile
 
+	; -stc-off
+	mov rax, r11
+	mov rsi, r12
+	strcmp_const "-stc-off"
+	call strcmp
+	cmp rax, 1
+	je .stc_off
+
 	cmp byte [rbp-118], 1
 	je .include_folder
+
+	jmp .end
+
+.stc_off:
+	mov byte [rbp-128], 0
 
 	jmp .end
 
@@ -428,9 +442,11 @@ _start:
 	mov rax, qword [rbp-8]
 	mov qword [rbp-127], rax
 
+	;stc on or off
+	;mov byte [rbp-128], 1 ARGS
 
-	;FREE 2 byte ASSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
-
+	;//
+	mov byte [rbp-129], 0
 
 	;uint32_t counter for blocks
 	mov dword [rbp-133], 0
@@ -441,9 +457,13 @@ _start:
 	;if stack com хранит counter для себя, а while_stack хранит кто это? if или while
 	mov qword [rbp-145], if_stack_com_end
 
-	;void*
+	;(stc_my, who?)
 	;0 = if
 	mov qword [rbp-153], stc_save_end
+
+	;save src_len on all time
+	mov eax, dword [rbp-12]
+	mov dword [rbp-157], eax
 
 	;add firsts strings for compilation file if select compilation mode
 	cmp byte [rbp-100], 0
@@ -1113,10 +1133,7 @@ string_to_int_loop_false:
 	pop rbp
 	ret
 
-push_my:
-	sub r15, 8
-	mov qword [r15], 0
-
+push_int_my:
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -1178,14 +1195,6 @@ push_my:
 	jmp command_finish
 
 dump_my:
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 1
-	jb .error_below
-
-	add r15, 8
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -1206,35 +1215,6 @@ dump_my:
 	call write
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `dump` instruction"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -1271,14 +1251,6 @@ dump_my:
 	jmp command_finish
 
 print_my:
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 1
-	jb .error_below
-
-	add r15, 8
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -1295,35 +1267,6 @@ print_my:
 	call write
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `print` instruction"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -1360,88 +1303,6 @@ print_my:
 	jmp command_finish
 
 plus_my:
-	;check stc stack len < 2
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 2
-	jb .error_below
-
-	;if a_type == INT and b_type == INT
-	mov rdx, 0
-	mov rsi, 1
-	mov rax, qword [r15]
-	cmp rax, 0
-	cmove rdx, rsi
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue_int
-
-	;if a_type == INT and b_type == PTR
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue_ptr
-
-	;if a_type == PTR and b_type == INT
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue_ptr
-
-	jmp .error_type
-
-.stc_continue_int:
-	add r15, 8
-	mov qword [r15], 0
-
-	jmp .stc_continue
-
-.stc_continue_ptr:
-	add r15, 8
-	mov qword [r15], 1
-
-	jmp .stc_continue
-
-.stc_continue:
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -1461,80 +1322,6 @@ plus_my:
 	mov [r12], rax
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `+` operation"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
-
-.error_type:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: invalid argument types for `+` operation, `"
-	mov rsi, rdi
-	call write
-
-	mov rdi, r15
-	add rdi, 8
-	mov rax, qword [rdi]
-	call stc_number_to_write
-
-	strcmp_const "` and `"
-	mov rsi, rdi
-	call write
-
-	mov rax, qword [r15]
-	call stc_number_to_write
-
-	strcmp_const "`"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -1571,88 +1358,6 @@ plus_my:
 	jmp command_finish
 
 minus_my:
-	;check stc stack len < 2
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 2
-	jb .error_below
-
-	;if a_type == INT and b_type == INT
-	mov rdx, 0
-	mov rsi, 1
-	mov rax, qword [r15]
-	cmp rax, 0
-	cmove rdx, rsi
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue_int
-
-	;if a_type == PTR and b_type == INT
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue_ptr
-
-	;if a_type == PTR and b_type == PTR
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue_int
-
-	jmp .error_type
-
-.stc_continue_int:
-	add r15, 8
-	mov qword [r15], 0
-
-	jmp .stc_continue
-
-.stc_continue_ptr:
-	add r15, 8
-	mov qword [r15], 1
-
-	jmp .stc_continue
-
-.stc_continue:
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -1672,80 +1377,6 @@ minus_my:
 	mov [r12], rdi
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `-` operation"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
-
-.error_type:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: invalid argument types for `-` operation, `"
-	mov rsi, rdi
-	call write
-
-	mov rdi, r15
-	add rdi, 8
-	mov rax, qword [rdi]
-	call stc_number_to_write
-
-	strcmp_const "` and `"
-	mov rsi, rdi
-	call write
-
-	mov rax, qword [r15]
-	call stc_number_to_write
-
-	strcmp_const "`"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -1782,58 +1413,6 @@ minus_my:
 	jmp command_finish
 
 equal_my:
-	;check stc stack len < 2
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 2
-	jb .error_below
-
-	;if a_type == INT and b_type == INT
-	mov rdx, 0
-	mov rsi, 1
-	mov rax, qword [r15]
-	cmp rax, 0
-	cmove rdx, rsi
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue
-
-	;if a_type == PTR and b_type == PTR
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue
-
-	jmp .error_type
-
-.stc_continue:
-	add r15, 8
-	mov qword [r15], 2
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -1857,80 +1436,6 @@ equal_my:
 	mov [r12], rsi
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `=` operation"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
-
-.error_type:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: invalid argument types for `=` operation, `"
-	mov rsi, rdi
-	call write
-
-	mov rdi, r15
-	add rdi, 8
-	mov rax, qword [rdi]
-	call stc_number_to_write
-
-	strcmp_const "` and `"
-	mov rsi, rdi
-	call write
-
-	mov rax, qword [r15]
-	call stc_number_to_write
-
-	strcmp_const "`"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -2020,35 +1525,6 @@ strcmp:
 	ret
 
 if_my:
-	;check stc stack len < 1
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 1
-	jb .error_below
-
-	;if a.type == BOOL
-	mov rax, qword [r15]
-	cmp rax, 2
-	je .stc_continue_checks_one
-
-	jmp .error_type
-
-.stc_continue_checks_one:
-	add r15, 8
-
-	;stack_snapshots.push((stack, 0))
-	mov rax, qword [rbp-153]
-	sub rax, 8
-	mov qword [rax], r15
-	sub rax, 1
-	mov byte [rax], 0
-	mov qword [rbp-153], rax
-
-	;DEBUG мб убрать это если это всё
-	jmp .stc_continue
-
-.stc_continue:
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -2064,73 +1540,6 @@ if_my:
 	je .push_skip
 
 	jmp .no_skip
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the if-block"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
-
-.error_type:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: invalid argument type for if-block condition. Expected `bool`, get `"
-	mov rsi, rdi
-	call write
-
-	mov rdi, r15
-	add rdi, 8
-	mov rax, qword [rdi]
-	call stc_number_to_write
-
-	strcmp_const "`"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;put in if stack end_ counter, end_ counter += 2, put in while stack its if
@@ -2406,57 +1815,6 @@ end_macro:
 	jmp command_finish
 
 end_my:
-	mov rax, qword [rbp-31]
-	cmp rax, if_stack_end
-	je .error_below_ifstack
-
-	;if stc_save was be called by if
-	mov rax, qword [rbp-153]
-	cmp byte [rax], 0
-	je .stc_if
-
-	jmp .stc_continue
-
-.stc_if:
-	mov rax, qword [rbp-153]
-	inc rax
-	cmp qword [rax], r15
-	jne .error_stcsave
-
-	jmp .stc_continue
-
-.error_stcsave:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: else-less if block is not allowed to alter the types of the arguments on the data stack"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
-
-.stc_continue:
-	add qword [rbp-153], 9
-
 	;if last if stack value == 6
 	mov rax, qword [rbp-31]
 	cmp qword [rax], 6
@@ -2614,17 +1972,6 @@ end_my:
 	jmp command_finish
 
 dup_my:
-	;check stc stack len < 1
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 1
-	jb .error_below
-
-	mov rax, qword [r15]
-	sub r15, 8
-	mov qword [r15], rax
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -2636,35 +1983,6 @@ dup_my:
 	mov [r12], rax
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `dup` instruction"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -2701,24 +2019,6 @@ dup_my:
 	jmp command_finish
 
 two_dup_my:
-	;check stc stack len < 2
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 2
-	jb .error_below
-
-	mov rax, r15
-	mov rsi, qword [rax]
-	add rax, 8
-	mov rdx, qword [rax]
-
-	sub r15, 8
-	mov qword [r15], rdx
-
-	sub r15, 8
-	mov qword [r15], rsi
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -2736,35 +2036,6 @@ two_dup_my:
 	mov [r12], rdi
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `2dup` instruction"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -2801,58 +2072,6 @@ two_dup_my:
 	jmp command_finish
 
 not_equal_my:
-	;check stc stack len < 2
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 2
-	jb .error_below
-
-	;if a_type == INT and b_type == INT
-	mov rdx, 0
-	mov rsi, 1
-	mov rax, qword [r15]
-	cmp rax, 0
-	cmove rdx, rsi
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue
-
-	;if a_type == PTR and b_type == PTR
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue
-
-	jmp .error_type
-
-.stc_continue:
-	add r15, 8
-	mov qword [r15], 2
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -2876,80 +2095,6 @@ not_equal_my:
 	mov [r12], rsi
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `!=` operation"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
-
-.error_type:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: invalid argument types for `!=` operation, `"
-	mov rsi, rdi
-	call write
-
-	mov rdi, r15
-	add rdi, 8
-	mov rax, qword [rdi]
-	call stc_number_to_write
-
-	strcmp_const "` and `"
-	mov rsi, rdi
-	call write
-
-	mov rax, qword [r15]
-	call stc_number_to_write
-
-	strcmp_const "`"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -2986,58 +2131,6 @@ not_equal_my:
 	jmp command_finish
 
 above_my:
-	;check stc stack len < 2
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 2
-	jb .error_below
-
-	;if a_type == INT and b_type == INT
-	mov rdx, 0
-	mov rsi, 1
-	mov rax, qword [r15]
-	cmp rax, 0
-	cmove rdx, rsi
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue
-
-	;if a_type == PTR and b_type == PTR
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue
-
-	jmp .error_type
-
-.stc_continue:
-	add r15, 8
-	mov qword [r15], 2
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -3061,80 +2154,6 @@ above_my:
 	mov [r12], rsi
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `>` operation"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
-
-.error_type:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: invalid argument types for `>` operation, `"
-	mov rsi, rdi
-	call write
-
-	mov rdi, r15
-	add rdi, 8
-	mov rax, qword [rdi]
-	call stc_number_to_write
-
-	strcmp_const "` and `"
-	mov rsi, rdi
-	call write
-
-	mov rax, qword [r15]
-	call stc_number_to_write
-
-	strcmp_const "`"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -3171,58 +2190,6 @@ above_my:
 	jmp command_finish
 
 below_my:
-	;check stc stack len < 2
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 2
-	jb .error_below
-
-	;if a_type == INT and b_type == INT
-	mov rdx, 0
-	mov rsi, 1
-	mov rax, qword [r15]
-	cmp rax, 0
-	cmove rdx, rsi
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue
-
-	;if a_type == PTR and b_type == PTR
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue
-
-	jmp .error_type
-
-.stc_continue:
-	add r15, 8
-	mov qword [r15], 2
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -3246,80 +2213,6 @@ below_my:
 	mov [r12], rsi
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `<` operation"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
-
-.error_type:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: invalid argument types for `<` operation, `"
-	mov rsi, rdi
-	call write
-
-	mov rdi, r15
-	add rdi, 8
-	mov rax, qword [rdi]
-	call stc_number_to_write
-
-	strcmp_const "` and `"
-	mov rsi, rdi
-	call write
-
-	mov rax, qword [r15]
-	call stc_number_to_write
-
-	strcmp_const "`"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -3356,58 +2249,6 @@ below_my:
 	jmp command_finish
 
 above_equal_my:
-	;check stc stack len < 2
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 2
-	jb .error_below
-
-	;if a_type == INT and b_type == INT
-	mov rdx, 0
-	mov rsi, 1
-	mov rax, qword [r15]
-	cmp rax, 0
-	cmove rdx, rsi
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue
-
-	;if a_type == PTR and b_type == PTR
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue
-
-	jmp .error_type
-
-.stc_continue:
-	add r15, 8
-	mov qword [r15], 2
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -3431,80 +2272,6 @@ above_equal_my:
 	mov [r12], rsi
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `>=` operation"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
-
-.error_type:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: invalid argument types for `>=` operation, `"
-	mov rsi, rdi
-	call write
-
-	mov rdi, r15
-	add rdi, 8
-	mov rax, qword [rdi]
-	call stc_number_to_write
-
-	strcmp_const "` and `"
-	mov rsi, rdi
-	call write
-
-	mov rax, qword [r15]
-	call stc_number_to_write
-
-	strcmp_const "`"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -3541,58 +2308,6 @@ above_equal_my:
 	jmp command_finish
 
 below_equal_my:
-	;check stc stack len < 2
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 2
-	jb .error_below
-
-	;if a_type == INT and b_type == INT
-	mov rdx, 0
-	mov rsi, 1
-	mov rax, qword [r15]
-	cmp rax, 0
-	cmove rdx, rsi
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue
-
-	;if a_type == PTR and b_type == PTR
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue
-
-	jmp .error_type
-
-.stc_continue:
-	add r15, 8
-	mov qword [r15], 2
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -3616,80 +2331,6 @@ below_equal_my:
 	mov [r12], rsi
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `<=` operation"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
-
-.error_type:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: invalid argument types for `<=` operation, `"
-	mov rsi, rdi
-	call write
-
-	mov rdi, r15
-	add rdi, 8
-	mov rax, qword [rdi]
-	call stc_number_to_write
-
-	strcmp_const "` and `"
-	mov rsi, rdi
-	call write
-
-	mov rax, qword [r15]
-	call stc_number_to_write
-
-	strcmp_const "`"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -3972,27 +2613,11 @@ do_my:
 	jmp command_finish
 
 comment_my:
-	;while *(src+1) != \n
-	mov rax, qword [rbp-8]
-	inc rax
-	cmp byte [rax], 10
-	je command_finish
+	mov byte [rbp-129], 1
 
-	;if src_len == 0
-	cmp dword [rbp-12], 0
-	je exit
-
-	;src++
-	;src_len--
-	inc qword [rbp-8]
-	dec dword [rbp-12]
-
-	jmp comment_my
+	jmp ssg
 
 mem_my:
-	sub r15, 8
-	mov qword [r15], 1
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -4037,9 +2662,6 @@ mem_my:
 	jmp command_finish
 
 mems_my:
-	sub r15, 8
-	mov qword [r15], 1
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -4084,9 +2706,6 @@ mems_my:
 	jmp command_finish
 
 mems_free_my:
-	sub r15, 8
-	mov qword [r15], 1
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -4131,20 +2750,6 @@ mems_free_my:
 	jmp command_finish
 
 load_my:
-	;check stc stack len < 1
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 1
-	jb .error_below
-
-	;if a.type == PTR
-	mov rax, qword [r15]
-	cmp rax, 1
-	jne .error_type
-
-	mov qword [r15], 0 ;ASDASDSADJASHDJ DEBUG DEBUG NADO KAKA SKIBIDI XZ CHTO LOZHIT
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -4161,71 +2766,6 @@ load_my:
 	mov [r12], rax
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `,` instruction"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
-
-.error_type:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: invalid argument types for `,` instruction, `"
-	mov rsi, rdi
-	call write
-
-	mov rax, qword [r15]
-	call stc_number_to_write
-
-	strcmp_const "`"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -4262,81 +2802,6 @@ load_my:
 	jmp command_finish
 
 store_my:
-	;check stc stack len < 2
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 2
-	jb .error_below
-
-	;if a_type == PTR and b_type == INT
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue
-
-	;if a_type == PTR and b_type == PTR
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue
-
-	;if a_type == PTR and b_type == BOOL
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 2
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue
-
-	jmp .error_type
-
-.stc_continue:
-	add r15, 16
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -4355,80 +2820,6 @@ store_my:
 	mov byte [rdi], sil
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `.` instruction"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
-
-.error_type:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: invalid argument types for `.` instruction, `"
-	mov rsi, rdi
-	call write
-
-	mov rdi, r15
-	add rdi, 8
-	mov rax, qword [rdi]
-	call stc_number_to_write
-
-	strcmp_const "` and `"
-	mov rsi, rdi
-	call write
-
-	mov rax, qword [r15]
-	call stc_number_to_write
-
-	strcmp_const "`"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -4465,16 +2856,6 @@ store_my:
 	jmp command_finish
 
 syscall_one:
-	;check stc stack len < 2
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 2
-	jb .error_below
-
-	add r15, 8
-	mov qword [r15], 0
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -4487,35 +2868,6 @@ syscall_one:
 	mov qword [r12], rax
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `syscall1` instruction"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -4552,17 +2904,6 @@ syscall_one:
 	jmp command_finish
 
 syscall_two:
-	;check stc stack len < 3
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 3
-	jb .error_below
-
-	add r15, 8
-	add r15, 8
-	mov qword [r15], 0
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -4578,35 +2919,6 @@ syscall_two:
 	mov qword [r12], rax
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `syscall2` instruction"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -4643,18 +2955,6 @@ syscall_two:
 	jmp command_finish
 
 syscall_three:
-	;check stc stack len < 4
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 4
-	jb .error_below
-
-	add r15, 8
-	add r15, 8
-	add r15, 8
-	mov qword [r15], 0
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -4673,35 +2973,6 @@ syscall_three:
 	mov qword [r12], rax
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `syscall3` instruction"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -4738,19 +3009,6 @@ syscall_three:
 	jmp command_finish
 
 syscall_four:
-	;check stc stack len < 5
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 5
-	jb .error_below
-
-	add r15, 8
-	add r15, 8
-	add r15, 8
-	add r15, 8
-	mov qword [r15], 0
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -4772,35 +3030,6 @@ syscall_four:
 	mov qword [r12], rax
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `syscall4` instruction"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -4837,20 +3066,6 @@ syscall_four:
 	jmp command_finish
 
 syscall_five:
-	;check stc stack len < 6
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 6
-	jb .error_below
-
-	add r15, 8
-	add r15, 8
-	add r15, 8
-	add r15, 8
-	add r15, 8
-	mov qword [r15], 0
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -4875,35 +3090,6 @@ syscall_five:
 	mov qword [r12], rax
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `syscall5` instruction"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -4940,21 +3126,6 @@ syscall_five:
 	jmp command_finish
 
 syscall_six:
-	;check stc stack len < 7
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 7
-	jb .error_below
-
-	add r15, 8
-	add r15, 8
-	add r15, 8
-	add r15, 8
-	add r15, 8
-	add r15, 8
-	mov qword [r15], 0
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -4982,35 +3153,6 @@ syscall_six:
 	mov qword [r12], rax
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `syscall6` instruction"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -5047,15 +3189,6 @@ syscall_six:
 	jmp command_finish
 
 drop_my:
-	;check stc stack len < 1
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 1
-	jb .error_below
-
-	add r15, 8
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -5063,35 +3196,6 @@ drop_my:
 	add r12, 8
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `drop` instruction"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -5128,70 +3232,6 @@ drop_my:
 	jmp command_finish
 
 shr_my:
-	;check stc stack len < 2
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 2
-	jb .error_below
-
-	;if a_type == INT and b_type == INT
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue_int
-
-	;if a_type == PTR and b_type == INT
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue_ptr
-
-	jmp .error_type
-
-.stc_continue_int:
-	add r15, 8
-	mov qword [r15], 0
-	
-	jmp .stc_continue
-
-.stc_continue_ptr:
-	add r15, 8
-	mov qword [r15], 1
-	
-	jmp .stc_continue
-
-.stc_continue:
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -5212,80 +3252,6 @@ shr_my:
 	mov [r12], rax
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `shr` instruction"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
-
-.error_type:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: invalid argument types for `shr` instruction, `"
-	mov rsi, rdi
-	call write
-
-	mov rdi, r15
-	add rdi, 8
-	mov rax, qword [rdi]
-	call stc_number_to_write
-
-	strcmp_const "` and `"
-	mov rsi, rdi
-	call write
-
-	mov rax, qword [r15]
-	call stc_number_to_write
-
-	strcmp_const "`"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -5322,70 +3288,6 @@ shr_my:
 	jmp command_finish
 
 shl_my:
-	;check stc stack len < 2
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 2
-	jb .error_below
-
-	;if a_type == INT and b_type == INT
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue_int
-
-	;if a_type == PTR and b_type == INT
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue_ptr
-
-	jmp .error_type
-
-.stc_continue_int:
-	add r15, 8
-	mov qword [r15], 0
-	
-	jmp .stc_continue
-
-.stc_continue_ptr:
-	add r15, 8
-	mov qword [r15], 1
-	
-	jmp .stc_continue
-
-.stc_continue:
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -5406,80 +3308,6 @@ shl_my:
 	mov [r12], rax
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `shl` instruction"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
-
-.error_type:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: invalid argument types for `shl` instruction, `"
-	mov rsi, rdi
-	call write
-
-	mov rdi, r15
-	add rdi, 8
-	mov rax, qword [rdi]
-	call stc_number_to_write
-
-	strcmp_const "` and `"
-	mov rsi, rdi
-	call write
-
-	mov rax, qword [r15]
-	call stc_number_to_write
-
-	strcmp_const "`"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -5516,112 +3344,6 @@ shl_my:
 	jmp command_finish
 
 bor_my:
-	;check stc stack len < 2
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 2
-	jb .error_below
-
-	;if a_type == INT and b_type == INT
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue_int
-
-	;if a_type == PTR and b_type == INT
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue_ptr
-
-	;if a_type == INT and b_type == PTR
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue_ptr
-
-	;if a_type == PTR and b_type == PTR
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue_ptr
-
-	jmp .error_type
-
-.stc_continue_int:
-	add r15, 8
-	mov qword [r15], 0
-	
-	jmp .stc_continue
-
-.stc_continue_ptr:
-	add r15, 8
-	mov qword [r15], 1
-	
-	jmp .stc_continue
-
-.stc_continue:
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -5641,80 +3363,6 @@ bor_my:
 	mov [r12], rax
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `bor` instruction"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
-
-.error_type:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: invalid argument types for `bor` instruction, `"
-	mov rsi, rdi
-	call write
-
-	mov rdi, r15
-	add rdi, 8
-	mov rax, qword [rdi]
-	call stc_number_to_write
-
-	strcmp_const "` and `"
-	mov rsi, rdi
-	call write
-
-	mov rax, qword [r15]
-	call stc_number_to_write
-
-	strcmp_const "`"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -5751,112 +3399,6 @@ bor_my:
 	jmp command_finish
 
 band_my:
-	;check stc stack len < 2
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 2
-	jb .error_below
-
-	;if a_type == INT and b_type == INT
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue_int
-
-	;if a_type == PTR and b_type == INT
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue_ptr
-
-	;if a_type == INT and b_type == PTR
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue_ptr
-
-	;if a_type == PTR and b_type == PTR
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue_ptr
-
-	jmp .error_type
-
-.stc_continue_int:
-	add r15, 8
-	mov qword [r15], 0
-	
-	jmp .stc_continue
-
-.stc_continue_ptr:
-	add r15, 8
-	mov qword [r15], 1
-	
-	jmp .stc_continue
-
-.stc_continue:
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -5876,80 +3418,6 @@ band_my:
 	mov [r12], rax
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `band` instruction"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
-
-.error_type:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: invalid argument types for `band` instruction, `"
-	mov rsi, rdi
-	call write
-
-	mov rdi, r15
-	add rdi, 8
-	mov rax, qword [rdi]
-	call stc_number_to_write
-
-	strcmp_const "` and `"
-	mov rsi, rdi
-	call write
-
-	mov rax, qword [r15]
-	call stc_number_to_write
-
-	strcmp_const "`"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -5986,20 +3454,6 @@ band_my:
 	jmp command_finish
 
 swap_my:
-	;check stc stack len < 2
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 2
-	jb .error_below
-
-	mov rdi, qword [r15]
-	add r15, 8
-	mov rax, qword [r15]
-	mov qword [r15], rdi
-	sub r15, 8
-	mov qword [r15], rax
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -6010,36 +3464,8 @@ swap_my:
 	mov [r12], rdi
 	sub r12, 8
 	mov [r12], rax
+
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `swap` instruction"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -6076,20 +3502,6 @@ swap_my:
 	jmp command_finish
 
 over_my:
-	;check stc stack len < 2
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 2
-	jb .error_below
-
-	;pop pop push push push
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	sub r15, 8
-	mov qword [r15], rdi
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -6102,36 +3514,8 @@ over_my:
 	mov [r12], rax
 	sub r12, 8
 	mov [r12], rdi
+
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `over` instruction"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -6168,12 +3552,6 @@ over_my:
 	jmp command_finish
 
 push_str_my:
-	sub r15, 8
-	mov qword [r15], 1
-	
-	sub r15, 8
-	mov qword [r15], 0
-
 	;remove "
 	inc qword [rbp-21]
 	dec byte [rbp-13]
@@ -6798,40 +4176,6 @@ include_file_name:
 	jmp exit_with_reason
 
 multi_my:
-	;check stc stack len < 2
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 2
-	jb .error_below
-
-	;if a_type == INT and b_type == INT
-	mov rdx, 0
-	mov rsi, 1
-	mov rax, qword [r15]
-	cmp rax, 0
-	cmove rdx, rsi
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue_int
-
-	jmp .error_type
-
-.stc_continue_int:
-	add r15, 8
-	mov qword [r15], 0
-
-	jmp .stc_continue
-
-.stc_continue:
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -6851,80 +4195,6 @@ multi_my:
 	mov [r12], rax
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `*` operation"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
-
-.error_type:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: invalid argument types for `*` operation, `"
-	mov rsi, rdi
-	call write
-
-	mov rdi, r15
-	add rdi, 8
-	mov rax, qword [rdi]
-	call stc_number_to_write
-
-	strcmp_const "` and `"
-	mov rsi, rdi
-	call write
-
-	mov rax, qword [r15]
-	call stc_number_to_write
-
-	strcmp_const "`"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -6961,61 +4231,6 @@ multi_my:
 	jmp command_finish
 
 mod_my:
-	;check stc stack len < 2
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 2
-	jb .error_below
-
-	;if a_type == INT and b_type == INT
-	mov rdx, 0
-	mov rsi, 1
-	mov rax, qword [r15]
-	cmp rax, 0
-	cmove rdx, rsi
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue_int
-
-	;if a_type == PTR and b_type == INT
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue_int
-
-	jmp .error_type
-
-.stc_continue_int:
-	add r15, 8
-	mov qword [r15], 0
-
-	jmp .stc_continue
-
-.stc_continue:
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -7037,80 +4252,6 @@ mod_my:
 	mov qword [r12], rcx
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `mod` operation"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
-
-.error_type:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: invalid argument types for `mod` operation, `"
-	mov rsi, rdi
-	call write
-
-	mov rdi, r15
-	add rdi, 8
-	mov rax, qword [rdi]
-	call stc_number_to_write
-
-	strcmp_const "` and `"
-	mov rsi, rdi
-	call write
-
-	mov rax, qword [r15]
-	call stc_number_to_write
-
-	strcmp_const "`"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -7147,9 +4288,6 @@ mod_my:
 	jmp command_finish
 
 push_char_my:
-	sub r15, 8
-	mov qword [r15], 0
-
 	;remove '
 	;word++ word_len -= 2
 	inc qword [rbp-21]
@@ -7301,40 +4439,6 @@ push_char_my:
 	jmp command_finish
 
 or_my:
-	;check stc stack len < 2
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 2
-	jb .error_below
-
-	;if a_type == BOOL and b_type == BOOL
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 2
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 2
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue
-
-	jmp .error_type
-
-.stc_continue:
-	add r15, 8
-	mov qword [r15], 2
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -7359,80 +4463,6 @@ or_my:
     mov qword [r12], rsi
 
     jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `or` operation"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
-
-.error_type:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: invalid argument types for `or` operation, `"
-	mov rsi, rdi
-	call write
-
-	mov rdi, r15
-	add rdi, 8
-	mov rax, qword [rdi]
-	call stc_number_to_write
-
-	strcmp_const "` and `"
-	mov rsi, rdi
-	call write
-
-	mov rax, qword [r15]
-	call stc_number_to_write
-
-	strcmp_const "`"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -7469,40 +4499,6 @@ or_my:
 	jmp command_finish
 
 and_my:
-	;check stc stack len < 2
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 2
-	jb .error_below
-
-	;if a_type == BOOL and b_type == BOOL
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 2
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 2
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue
-
-	jmp .error_type
-
-.stc_continue:
-	add r15, 8
-	mov qword [r15], 2
-
 	cmp byte[rbp-100], 0
 	je .com
 
@@ -7536,80 +4532,6 @@ and_my:
 	pop r8
 
     jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `and` operation"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
-
-.error_type:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: invalid argument types for `and` operation, `"
-	mov rsi, rdi
-	call write
-
-	mov rdi, r15
-	add rdi, 8
-	mov rax, qword [rdi]
-	call stc_number_to_write
-
-	strcmp_const "` and `"
-	mov rsi, rdi
-	call write
-
-	mov rax, qword [r15]
-	call stc_number_to_write
-
-	strcmp_const "`"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -7666,61 +4588,6 @@ break_my:
     jmp command_finish
 
 div_my:
-	;check stc stack len < 2
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 2
-	jb .error_below
-
-	;if a_type == INT and b_type == INT
-	mov rdx, 0
-	mov rsi, 1
-	mov rax, qword [r15]
-	cmp rax, 0
-	cmove rdx, rsi
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue_int
-
-	;if a_type == PTR and b_type == INT
-	mov rdx, 0
-	mov rsi, 1
-
-	mov rax, r15
-	add rax, 8
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 1
-	cmove rdx, rsi
-
-	mov rax, r15
-	mov rdi, qword [rax]
-	mov rax, 0
-	cmp rdi, 0
-	cmove rax, rsi
-
-	add rax, rdx
-	cmp rax, 2
-	je .stc_continue_int
-
-	jmp .error_type
-
-.stc_continue_int:
-	add r15, 8
-	mov qword [r15], 0
-
-	jmp .stc_continue
-
-.stc_continue:
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -7741,80 +4608,6 @@ div_my:
 	mov qword [r12], rax
 
 	jmp command_finish
-
-.error_below:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: not enough arguments for the `/` operation"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
-
-.error_type:
-	;1 line 5 character: ...
-	call count_lines_and_characters
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " line "
-	mov rsi, rdi
-	call write
-
-	call count_lines_and_characters
-	mov rax, rdi
-	call int_to_string
-	mov rsi, rax
-	mov rdx, rdi
-	call write
-
-	strcmp_const " character: invalid argument types for `/` operation, `"
-	mov rsi, rdi
-	call write
-
-	mov rdi, r15
-	add rdi, 8
-	mov rax, qword [rdi]
-	call stc_number_to_write
-
-	strcmp_const "` and `"
-	mov rsi, rdi
-	call write
-
-	mov rax, qword [r15]
-	call stc_number_to_write
-
-	strcmp_const "`"
-	mov rsi, rdi
-	call write
-
-	mov rsi, newline_character
-	mov rdx, 1
-	call write
-
-	jmp exit_f
 
 .com:
 	;
@@ -7851,20 +4644,6 @@ div_my:
 	jmp command_finish
 
 free_string_my:
-	;check stc stack len < 1
-	mov rax, r15
-	mov rdi, stc_my_end
-	call stack_len
-	cmp rax, 1
-	jb .error_below
-
-	;if a.type == INT
-	mov rax, qword [r15]
-	cmp rax, 0
-	jne .error_type
-
-	add r15, 8
-
 	cmp byte [rbp-100], 0
 	je .com
 
@@ -8076,6 +4855,3875 @@ argv_my:
 
 	jmp command_finish
 
+stc_push_int_my:
+	sub r15, 8
+	mov qword [r15], 0
+
+	jmp command_finish
+
+
+stc_push_str_my:
+	sub r15, 8
+	mov qword [r15], 1
+	
+	sub r15, 8
+	mov qword [r15], 0
+
+	jmp command_finish
+
+stc_push_char_my:
+	sub r15, 8
+	mov qword [r15], 0
+
+	jmp command_finish
+
+stc_dup_my:
+	;check stc stack len < 1
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 1
+	jb .error_below
+
+	mov rax, qword [r15]
+	sub r15, 8
+	mov qword [r15], rax
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `dup` instruction"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_two_dup_my:
+	;check stc stack len < 2
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 2
+	jb .error_below
+
+	mov rax, r15
+	mov rsi, qword [rax]
+	add rax, 8
+	mov rdx, qword [rax]
+
+	sub r15, 8
+	mov qword [r15], rdx
+
+	sub r15, 8
+	mov qword [r15], rsi
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `2dup` instruction"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_drop_my:
+	;check stc stack len < 1
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 1
+	jb .error_below
+
+	add r15, 8
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `drop` instruction"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_swap_my:
+	;check stc stack len < 2
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 2
+	jb .error_below
+
+	mov rdi, qword [r15]
+	add r15, 8
+	mov rax, qword [r15]
+	mov qword [r15], rdi
+	sub r15, 8
+	mov qword [r15], rax
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `swap` instruction"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_over_my:
+	;check stc stack len < 2
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 2
+	jb .error_below
+
+	;pop pop push push push
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	sub r15, 8
+	mov qword [r15], rdi
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `over` instruction"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_shr_my:
+	;check stc stack len < 2
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 2
+	jb .error_below
+
+	;if a_type == INT and b_type == INT
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue_int
+
+	;if a_type == PTR and b_type == INT
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue_ptr
+
+	jmp .error_type
+
+.stc_continue_int:
+	add r15, 8
+	mov qword [r15], 0
+	
+	jmp command_finish
+
+.stc_continue_ptr:
+	add r15, 8
+	mov qword [r15], 1
+	
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `shr` instruction"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+.error_type:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: invalid argument types for `shr` instruction, `"
+	mov rsi, rdi
+	call write
+
+	mov rdi, r15
+	add rdi, 8
+	mov rax, qword [rdi]
+	call stc_number_to_write
+
+	strcmp_const "` and `"
+	mov rsi, rdi
+	call write
+
+	mov rax, qword [r15]
+	call stc_number_to_write
+
+	strcmp_const "`"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_shl_my:
+	;check stc stack len < 2
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 2
+	jb .error_below
+
+	;if a_type == INT and b_type == INT
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue_int
+
+	;if a_type == PTR and b_type == INT
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue_ptr
+
+	jmp .error_type
+
+.stc_continue_int:
+	add r15, 8
+	mov qword [r15], 0
+	
+	jmp command_finish
+
+.stc_continue_ptr:
+	add r15, 8
+	mov qword [r15], 1
+	
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `shl` instruction"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+.error_type:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: invalid argument types for `shl` instruction, `"
+	mov rsi, rdi
+	call write
+
+	mov rdi, r15
+	add rdi, 8
+	mov rax, qword [rdi]
+	call stc_number_to_write
+
+	strcmp_const "` and `"
+	mov rsi, rdi
+	call write
+
+	mov rax, qword [r15]
+	call stc_number_to_write
+
+	strcmp_const "`"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_bor_my:
+	;check stc stack len < 2
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 2
+	jb .error_below
+
+	;if a_type == INT and b_type == INT
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue_int
+
+	;if a_type == PTR and b_type == INT
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue_ptr
+
+	;if a_type == INT and b_type == PTR
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue_ptr
+
+	;if a_type == PTR and b_type == PTR
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue_ptr
+
+	jmp .error_type
+
+.stc_continue_int:
+	add r15, 8
+	mov qword [r15], 0
+	
+	jmp command_finish
+
+.stc_continue_ptr:
+	add r15, 8
+	mov qword [r15], 1
+	
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `bor` instruction"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+.error_type:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: invalid argument types for `bor` instruction, `"
+	mov rsi, rdi
+	call write
+
+	mov rdi, r15
+	add rdi, 8
+	mov rax, qword [rdi]
+	call stc_number_to_write
+
+	strcmp_const "` and `"
+	mov rsi, rdi
+	call write
+
+	mov rax, qword [r15]
+	call stc_number_to_write
+
+	strcmp_const "`"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_band_my:
+	;check stc stack len < 2
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 2
+	jb .error_below
+
+	;if a_type == INT and b_type == INT
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue_int
+
+	;if a_type == PTR and b_type == INT
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue_ptr
+
+	;if a_type == INT and b_type == PTR
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue_ptr
+
+	;if a_type == PTR and b_type == PTR
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue_ptr
+
+	jmp .error_type
+
+.stc_continue_int:
+	add r15, 8
+	mov qword [r15], 0
+	
+	jmp command_finish
+
+.stc_continue_ptr:
+	add r15, 8
+	mov qword [r15], 1
+	
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `band` instruction"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+.error_type:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: invalid argument types for `band` instruction, `"
+	mov rsi, rdi
+	call write
+
+	mov rdi, r15
+	add rdi, 8
+	mov rax, qword [rdi]
+	call stc_number_to_write
+
+	strcmp_const "` and `"
+	mov rsi, rdi
+	call write
+
+	mov rax, qword [r15]
+	call stc_number_to_write
+
+	strcmp_const "`"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_plus_my:
+	;check stc stack len < 2
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 2
+	jb .error_below
+
+	;if a_type == INT and b_type == INT
+	mov rdx, 0
+	mov rsi, 1
+	mov rax, qword [r15]
+	cmp rax, 0
+	cmove rdx, rsi
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue_int
+
+	;if a_type == INT and b_type == PTR
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue_ptr
+
+	;if a_type == PTR and b_type == INT
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue_ptr
+
+	jmp .error_type
+
+.stc_continue_int:
+	add r15, 8
+	mov qword [r15], 0
+
+	jmp command_finish
+
+.stc_continue_ptr:
+	add r15, 8
+	mov qword [r15], 1
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `+` operation"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+.error_type:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: invalid argument types for `+` operation, `"
+	mov rsi, rdi
+	call write
+
+	mov rdi, r15
+	add rdi, 8
+	mov rax, qword [rdi]
+	call stc_number_to_write
+
+	strcmp_const "` and `"
+	mov rsi, rdi
+	call write
+
+	mov rax, qword [r15]
+	call stc_number_to_write
+
+	strcmp_const "`"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_minus_my:
+	;check stc stack len < 2
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 2
+	jb .error_below
+
+	;if a_type == INT and b_type == INT
+	mov rdx, 0
+	mov rsi, 1
+	mov rax, qword [r15]
+	cmp rax, 0
+	cmove rdx, rsi
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue_int
+
+	;if a_type == PTR and b_type == INT
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue_ptr
+
+	;if a_type == PTR and b_type == PTR
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue_int
+
+	jmp .error_type
+
+.stc_continue_int:
+	add r15, 8
+	mov qword [r15], 0
+
+	jmp command_finish
+
+.stc_continue_ptr:
+	add r15, 8
+	mov qword [r15], 1
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `-` operation"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+.error_type:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: invalid argument types for `-` operation, `"
+	mov rsi, rdi
+	call write
+
+	mov rdi, r15
+	add rdi, 8
+	mov rax, qword [rdi]
+	call stc_number_to_write
+
+	strcmp_const "` and `"
+	mov rsi, rdi
+	call write
+
+	mov rax, qword [r15]
+	call stc_number_to_write
+
+	strcmp_const "`"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_multi_my:
+	;check stc stack len < 2
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 2
+	jb .error_below
+
+	;if a_type == INT and b_type == INT
+	mov rdx, 0
+	mov rsi, 1
+	mov rax, qword [r15]
+	cmp rax, 0
+	cmove rdx, rsi
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue_int
+
+	jmp .error_type
+
+.stc_continue_int:
+	add r15, 8
+	mov qword [r15], 0
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `*` operation"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+.error_type:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: invalid argument types for `*` operation, `"
+	mov rsi, rdi
+	call write
+
+	mov rdi, r15
+	add rdi, 8
+	mov rax, qword [rdi]
+	call stc_number_to_write
+
+	strcmp_const "` and `"
+	mov rsi, rdi
+	call write
+
+	mov rax, qword [r15]
+	call stc_number_to_write
+
+	strcmp_const "`"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_div_my:
+	;check stc stack len < 2
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 2
+	jb .error_below
+
+	;if a_type == INT and b_type == INT
+	mov rdx, 0
+	mov rsi, 1
+	mov rax, qword [r15]
+	cmp rax, 0
+	cmove rdx, rsi
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue_int
+
+	;if a_type == PTR and b_type == INT
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue_int
+
+	jmp .error_type
+
+.stc_continue_int:
+	add r15, 8
+	mov qword [r15], 0
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `/` operation"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+.error_type:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: invalid argument types for `/` operation, `"
+	mov rsi, rdi
+	call write
+
+	mov rdi, r15
+	add rdi, 8
+	mov rax, qword [rdi]
+	call stc_number_to_write
+
+	strcmp_const "` and `"
+	mov rsi, rdi
+	call write
+
+	mov rax, qword [r15]
+	call stc_number_to_write
+
+	strcmp_const "`"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_mod_my:
+	;check stc stack len < 2
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 2
+	jb .error_below
+
+	;if a_type == INT and b_type == INT
+	mov rdx, 0
+	mov rsi, 1
+	mov rax, qword [r15]
+	cmp rax, 0
+	cmove rdx, rsi
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue_int
+
+	;if a_type == PTR and b_type == INT
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue_int
+
+	jmp .error_type
+
+.stc_continue_int:
+	add r15, 8
+	mov qword [r15], 0
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `mod` operation"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+.error_type:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: invalid argument types for `mod` operation, `"
+	mov rsi, rdi
+	call write
+
+	mov rdi, r15
+	add rdi, 8
+	mov rax, qword [rdi]
+	call stc_number_to_write
+
+	strcmp_const "` and `"
+	mov rsi, rdi
+	call write
+
+	mov rax, qword [r15]
+	call stc_number_to_write
+
+	strcmp_const "`"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_equal_my:
+	;check stc stack len < 2
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 2
+	jb .error_below
+
+	;if a_type == INT and b_type == INT
+	mov rdx, 0
+	mov rsi, 1
+	mov rax, qword [r15]
+	cmp rax, 0
+	cmove rdx, rsi
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue
+
+	;if a_type == PTR and b_type == PTR
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue
+
+	jmp .error_type
+
+.stc_continue:
+	add r15, 8
+	mov qword [r15], 2
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `=` operation"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+.error_type:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: invalid argument types for `=` operation, `"
+	mov rsi, rdi
+	call write
+
+	mov rdi, r15
+	add rdi, 8
+	mov rax, qword [rdi]
+	call stc_number_to_write
+
+	strcmp_const "` and `"
+	mov rsi, rdi
+	call write
+
+	mov rax, qword [r15]
+	call stc_number_to_write
+
+	strcmp_const "`"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_not_equal_my:
+	;check stc stack len < 2
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 2
+	jb .error_below
+
+	;if a_type == INT and b_type == INT
+	mov rdx, 0
+	mov rsi, 1
+	mov rax, qword [r15]
+	cmp rax, 0
+	cmove rdx, rsi
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue
+
+	;if a_type == PTR and b_type == PTR
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue
+
+	jmp .error_type
+
+.stc_continue:
+	add r15, 8
+	mov qword [r15], 2
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `!=` operation"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+.error_type:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: invalid argument types for `!=` operation, `"
+	mov rsi, rdi
+	call write
+
+	mov rdi, r15
+	add rdi, 8
+	mov rax, qword [rdi]
+	call stc_number_to_write
+
+	strcmp_const "` and `"
+	mov rsi, rdi
+	call write
+
+	mov rax, qword [r15]
+	call stc_number_to_write
+
+	strcmp_const "`"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_above_my:
+	;check stc stack len < 2
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 2
+	jb .error_below
+
+	;if a_type == INT and b_type == INT
+	mov rdx, 0
+	mov rsi, 1
+	mov rax, qword [r15]
+	cmp rax, 0
+	cmove rdx, rsi
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue
+
+	;if a_type == PTR and b_type == PTR
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue
+
+	jmp .error_type
+
+.stc_continue:
+	add r15, 8
+	mov qword [r15], 2
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `>` operation"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+.error_type:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: invalid argument types for `>` operation, `"
+	mov rsi, rdi
+	call write
+
+	mov rdi, r15
+	add rdi, 8
+	mov rax, qword [rdi]
+	call stc_number_to_write
+
+	strcmp_const "` and `"
+	mov rsi, rdi
+	call write
+
+	mov rax, qword [r15]
+	call stc_number_to_write
+
+	strcmp_const "`"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_below_my:
+	;check stc stack len < 2
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 2
+	jb .error_below
+
+	;if a_type == INT and b_type == INT
+	mov rdx, 0
+	mov rsi, 1
+	mov rax, qword [r15]
+	cmp rax, 0
+	cmove rdx, rsi
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue
+
+	;if a_type == PTR and b_type == PTR
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue
+
+	jmp .error_type
+
+.stc_continue:
+	add r15, 8
+	mov qword [r15], 2
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `<` operation"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+.error_type:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: invalid argument types for `<` operation, `"
+	mov rsi, rdi
+	call write
+
+	mov rdi, r15
+	add rdi, 8
+	mov rax, qword [rdi]
+	call stc_number_to_write
+
+	strcmp_const "` and `"
+	mov rsi, rdi
+	call write
+
+	mov rax, qword [r15]
+	call stc_number_to_write
+
+	strcmp_const "`"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_above_equal_my:
+	;check stc stack len < 2
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 2
+	jb .error_below
+
+	;if a_type == INT and b_type == INT
+	mov rdx, 0
+	mov rsi, 1
+	mov rax, qword [r15]
+	cmp rax, 0
+	cmove rdx, rsi
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue
+
+	;if a_type == PTR and b_type == PTR
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue
+
+	jmp .error_type
+
+.stc_continue:
+	add r15, 8
+	mov qword [r15], 2
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `>=` operation"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+.error_type:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: invalid argument types for `>=` operation, `"
+	mov rsi, rdi
+	call write
+
+	mov rdi, r15
+	add rdi, 8
+	mov rax, qword [rdi]
+	call stc_number_to_write
+
+	strcmp_const "` and `"
+	mov rsi, rdi
+	call write
+
+	mov rax, qword [r15]
+	call stc_number_to_write
+
+	strcmp_const "`"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_below_equal_my:
+	;check stc stack len < 2
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 2
+	jb .error_below
+
+	;if a_type == INT and b_type == INT
+	mov rdx, 0
+	mov rsi, 1
+	mov rax, qword [r15]
+	cmp rax, 0
+	cmove rdx, rsi
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue
+
+	;if a_type == PTR and b_type == PTR
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue
+
+	jmp .error_type
+
+.stc_continue:
+	add r15, 8
+	mov qword [r15], 2
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `<=` operation"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+.error_type:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: invalid argument types for `<=` operation, `"
+	mov rsi, rdi
+	call write
+
+	mov rdi, r15
+	add rdi, 8
+	mov rax, qword [rdi]
+	call stc_number_to_write
+
+	strcmp_const "` and `"
+	mov rsi, rdi
+	call write
+
+	mov rax, qword [r15]
+	call stc_number_to_write
+
+	strcmp_const "`"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_or_my:
+	;check stc stack len < 2
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 2
+	jb .error_below
+
+	;if a_type == BOOL and b_type == BOOL
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 2
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 2
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue
+
+	jmp .error_type
+
+.stc_continue:
+	add r15, 8
+	mov qword [r15], 2
+
+    jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `or` operation"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+.error_type:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: invalid argument types for `or` operation, `"
+	mov rsi, rdi
+	call write
+
+	mov rdi, r15
+	add rdi, 8
+	mov rax, qword [rdi]
+	call stc_number_to_write
+
+	strcmp_const "` and `"
+	mov rsi, rdi
+	call write
+
+	mov rax, qword [r15]
+	call stc_number_to_write
+
+	strcmp_const "`"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_and_my:
+	;check stc stack len < 2
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 2
+	jb .error_below
+
+	;if a_type == BOOL and b_type == BOOL
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 2
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 2
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue
+
+	jmp .error_type
+
+.stc_continue:
+	add r15, 8
+	mov qword [r15], 2
+
+    jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `and` operation"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+.error_type:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: invalid argument types for `and` operation, `"
+	mov rsi, rdi
+	call write
+
+	mov rdi, r15
+	add rdi, 8
+	mov rax, qword [rdi]
+	call stc_number_to_write
+
+	strcmp_const "` and `"
+	mov rsi, rdi
+	call write
+
+	mov rax, qword [r15]
+	call stc_number_to_write
+
+	strcmp_const "`"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_dump_my:
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 1
+	jb .error_below
+
+	add r15, 8
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `dump` instruction"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_print_my:
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 1
+	jb .error_below
+
+	add r15, 8
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `print` instruction"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_if_my:
+	;check stc stack len < 1
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 1
+	jb .error_below
+
+	;if a.type == BOOL
+	mov rax, qword [r15]
+	cmp rax, 2
+	je .stc_continue_checks_one
+
+	jmp .error_type
+
+.stc_continue_checks_one:
+	add r15, 8
+
+	;stack_snapshots.push((stack, 0))
+	mov rax, qword [rbp-153]
+	sub rax, 8
+	mov qword [rax], r15
+	sub rax, 1
+	mov byte [rax], 0
+	mov qword [rbp-153], rax
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the if-block"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+.error_type:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: invalid argument type for if-block condition. Expected `bool`, get `"
+	mov rsi, rdi
+	call write
+
+	mov rdi, r15
+	add rdi, 8
+	mov rax, qword [rdi]
+	call stc_number_to_write
+
+	strcmp_const "`"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_else_my:
+	strcmp_const "stc_else_my: not implemented"
+	mov rsi, rdi
+	call write
+
+	jmp exit_f
+
+stc_end_my:
+	mov rax, qword [rbp-31]
+	cmp rax, if_stack_end
+	je .error_below_ifstack
+
+	;if stc_save was be called by if
+	mov rax, qword [rbp-153]
+	cmp byte [rax], 0
+	je .stc_if
+
+	jmp .stc_continue
+
+.stc_if:
+	mov rax, qword [rbp-153]
+	inc rax
+	cmp qword [rax], r15
+	jne .error_stcsave
+
+	jmp .stc_continue
+
+.error_stcsave:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: else-less if block is not allowed to alter the types of the arguments on the data stack"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+.stc_continue:
+	add qword [rbp-153], 9
+
+	jmp command_finish
+
+.error_below_ifstack:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: unexpected `end`, no matching block to close"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_while_my:
+	strcmp_const "stc_while_my: not implemented"
+	mov rsi, rdi
+	call write
+
+	jmp exit_f
+
+stc_do_my:
+	strcmp_const "stc_do_my: not implemented"
+	mov rsi, rdi
+	call write
+
+	jmp exit_f
+
+stc_break_my:
+	strcmp_const "stc_break_my: not implemented"
+	mov rsi, rdi
+	call write
+
+	jmp exit_f
+
+stc_mem_my:
+	sub r15, 8
+	mov qword [r15], 1
+
+	jmp command_finish
+
+stc_mems_my:
+	sub r15, 8
+	mov qword [r15], 1
+
+	jmp command_finish
+
+stc_mems_free_my:
+	sub r15, 8
+	mov qword [r15], 1
+
+	jmp command_finish
+
+stc_store_my:
+	;check stc stack len < 2
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 2
+	jb .error_below
+
+	;if a_type == PTR and b_type == INT
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 0
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue
+
+	;if a_type == PTR and b_type == PTR
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue
+
+	;if a_type == PTR and b_type == BOOL
+	mov rdx, 0
+	mov rsi, 1
+
+	mov rax, r15
+	add rax, 8
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 1
+	cmove rdx, rsi
+
+	mov rax, r15
+	mov rdi, qword [rax]
+	mov rax, 0
+	cmp rdi, 2
+	cmove rax, rsi
+
+	add rax, rdx
+	cmp rax, 2
+	je .stc_continue
+
+	jmp .error_type
+
+.stc_continue:
+	add r15, 16
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `.` instruction"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+.error_type:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: invalid argument types for `.` instruction, `"
+	mov rsi, rdi
+	call write
+
+	mov rdi, r15
+	add rdi, 8
+	mov rax, qword [rdi]
+	call stc_number_to_write
+
+	strcmp_const "` and `"
+	mov rsi, rdi
+	call write
+
+	mov rax, qword [r15]
+	call stc_number_to_write
+
+	strcmp_const "`"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_load_my:
+	;check stc stack len < 1
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 1
+	jb .error_below
+
+	;if a.type == PTR
+	mov rax, qword [r15]
+	cmp rax, 1
+	jne .error_type
+
+	mov qword [r15], 0
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `,` instruction"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+.error_type:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: invalid argument types for `,` instruction, `"
+	mov rsi, rdi
+	call write
+
+	mov rax, qword [r15]
+	call stc_number_to_write
+
+	strcmp_const "`"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_free_string_my:
+	;check stc stack len < 1
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 1
+	jb .error_below
+
+	;if a.type == INT
+	mov rax, qword [r15]
+	cmp rax, 0
+	jne .error_type
+
+	add r15, 8
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `free_string` instruction"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+.error_type:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: invalid argument types for `free_string` instruction, `"
+	mov rsi, rdi
+	call write
+
+	mov rax, qword [r15]
+	call stc_number_to_write
+
+	strcmp_const "`"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_syscall_one:
+	;check stc stack len < 2
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 2
+	jb .error_below
+
+	add r15, 8
+	mov qword [r15], 0
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `syscall1` instruction"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_syscall_two:
+	;check stc stack len < 3
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 3
+	jb .error_below
+
+	add r15, 8
+	add r15, 8
+	mov qword [r15], 0
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `syscall2` instruction"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_syscall_three:
+	;check stc stack len < 4
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 4
+	jb .error_below
+
+	add r15, 8
+	add r15, 8
+	add r15, 8
+	mov qword [r15], 0
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `syscall3` instruction"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_syscall_four:
+	;check stc stack len < 5
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 5
+	jb .error_below
+
+	add r15, 8
+	add r15, 8
+	add r15, 8
+	add r15, 8
+	mov qword [r15], 0
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `syscall4` instruction"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_syscall_five:
+	;check stc stack len < 6
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 6
+	jb .error_below
+
+	add r15, 8
+	add r15, 8
+	add r15, 8
+	add r15, 8
+	add r15, 8
+	mov qword [r15], 0
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `syscall5` instruction"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_syscall_six:
+	;check stc stack len < 7
+	mov rax, r15
+	mov rdi, stc_my_end
+	call stack_len
+	cmp rax, 7
+	jb .error_below
+
+	add r15, 8
+	add r15, 8
+	add r15, 8
+	add r15, 8
+	add r15, 8
+	add r15, 8
+	mov qword [r15], 0
+
+	jmp command_finish
+
+.error_below:
+	;1 line 5 character: ...
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: not enough arguments for the `syscall6` instruction"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+stc_macro_my:
+	strcmp_const "stc_macro_my: not implemented"
+	mov rsi, rdi
+	call write
+
+	jmp exit_f
+
+stc_include_my:
+	strcmp_const "stc_macro_my: not implemented"
+	mov rsi, rdi
+	call write
+
+	jmp exit_f
+
+stc_argc_my:
+	sub r15, 8
+	mov qword [r15], 0
+
+	jmp command_finish
+
+stc_argv_my:
+	sub r15, 8
+	mov qword [r15], 1
+
+	jmp command_finish
+
+stc_do_command:
+	;its_number(word_now, word_len)
+	mov rax, qword [rbp-21]
+	movzx rdi, byte [rbp-13]
+	call its_number
+	cmp rax, 1
+	je stc_push_int_my
+
+	;if *word == "
+	mov rax, qword [rbp-21]
+	cmp byte [rax], 34
+	je stc_push_str_my
+
+	;if *word == '
+	mov rax, qword [rbp-21]
+	cmp byte [rax], 39
+	je stc_push_char_my
+
+	; dup
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "dup"
+	call strcmp
+	cmp rax, 1
+	je stc_dup_my
+
+	; 2dup
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "2dup"
+	call strcmp
+	cmp rax, 1
+	je stc_two_dup_my
+
+	; drop
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "drop"
+	call strcmp
+	cmp rax, 1
+	je stc_drop_my
+
+	; swap
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "swap"
+	call strcmp
+	cmp rax, 1
+	je stc_swap_my
+
+	; over
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "over"
+	call strcmp
+	cmp rax, 1
+	je stc_over_my
+
+
+	; shr
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "shr"
+	call strcmp
+	cmp rax, 1
+	je stc_shr_my
+
+	; shl
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "shl"
+	call strcmp
+	cmp rax, 1
+	je stc_shl_my
+
+	; bor
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "bor"
+	call strcmp
+	cmp rax, 1
+	je stc_bor_my
+
+	; band
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "band"
+	call strcmp
+	cmp rax, 1
+	je stc_band_my
+
+
+	; +
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "+"
+	call strcmp
+	cmp rax, 1
+	je stc_plus_my
+
+	; -
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "-"
+	call strcmp
+	cmp rax, 1
+	je stc_minus_my
+
+	; *
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "*"
+	call strcmp
+	cmp rax, 1
+	je stc_multi_my
+
+	; /
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "/"
+	call strcmp
+	cmp rax, 1
+	je stc_div_my
+
+	; mod
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "mod"
+	call strcmp
+	cmp rax, 1
+	je stc_mod_my
+
+
+	; =
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "="
+	call strcmp
+	cmp rax, 1
+	je stc_equal_my
+
+	; !=
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "!="
+	call strcmp
+	cmp rax, 1
+	je stc_not_equal_my
+
+	; >
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const ">"
+	call strcmp
+	cmp rax, 1
+	je stc_above_my
+
+	; <
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "<"
+	call strcmp
+	cmp rax, 1
+	je stc_below_my
+
+	; >=
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const ">="
+	call strcmp
+	cmp rax, 1
+	je stc_above_equal_my
+
+	; <=
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "<="
+	call strcmp
+	cmp rax, 1
+	je stc_below_equal_my
+
+	; or
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "or"
+	call strcmp
+	cmp rax, 1
+	je stc_or_my
+
+	; and
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "and"
+	call strcmp
+	cmp rax, 1
+	je stc_and_my
+
+
+	; dump
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "dump"
+	call strcmp
+	cmp rax, 1
+	je stc_dump_my
+
+	; print
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "print"
+	call strcmp
+	cmp rax, 1
+	je stc_print_my
+
+
+	; if
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "if"
+	call strcmp
+	cmp rax, 1
+	je stc_if_my
+
+	; else
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "else"
+	call strcmp
+	cmp rax, 1
+	je stc_else_my
+
+	; end
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "end"
+	call strcmp
+	cmp rax, 1
+	je stc_end_my
+
+
+	; while
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "while"
+	call strcmp
+	cmp rax, 1
+	je stc_while_my
+
+	; do
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "do"
+	call strcmp
+	cmp rax, 1
+	je stc_do_my
+
+	; break
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "break"
+	call strcmp
+	cmp rax, 1
+	je stc_break_my
+
+
+	; mem
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "mem"
+	call strcmp
+	cmp rax, 1
+	je stc_mem_my
+
+	; mems
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "mems"
+	call strcmp
+	cmp rax, 1
+	je stc_mems_my
+
+	; mems_free
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "mems_free"
+	call strcmp
+	cmp rax, 1
+	je stc_mems_free_my
+
+	; .
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "."
+	call strcmp
+	cmp rax, 1
+	je stc_store_my
+
+	; ,
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const ","
+	call strcmp
+	cmp rax, 1
+	je stc_load_my
+
+	; free_string
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "free_string"
+	call strcmp
+	cmp rax, 1
+	je stc_free_string_my
+
+
+	; syscall1
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "syscall1"
+	call strcmp
+	cmp rax, 1
+	je stc_syscall_one
+
+	; syscall2
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "syscall2"
+	call strcmp
+	cmp rax, 1
+	je stc_syscall_two
+
+	; syscall3
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "syscall3"
+	call strcmp
+	cmp rax, 1
+	je stc_syscall_three
+
+	; syscall4
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "syscall4"
+	call strcmp
+	cmp rax, 1
+	je stc_syscall_four
+
+	; syscall5
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "syscall5"
+	call strcmp
+	cmp rax, 1
+	je stc_syscall_five
+
+	; syscall6
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "syscall6"
+	call strcmp
+	cmp rax, 1
+	je stc_syscall_six
+
+
+	; macro
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "macro"
+	call strcmp
+	cmp rax, 1
+	je stc_macro_my
+
+	; include
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "include"
+	call strcmp
+	cmp rax, 1
+	je stc_include_my
+
+
+	; argc
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "argc"
+	call strcmp
+	cmp rax, 1
+	je stc_argc_my
+
+	; argv
+	mov rax, qword [rbp-21]
+	movzx rsi, byte [rbp-13]
+	strcmp_const "argv"
+	call strcmp
+	cmp rax, 1
+	je stc_argv_my
+
+	jmp command_finish
+
 do_command:
 	;if word_len == 0
 	cmp byte [rbp-13], 0
@@ -8083,6 +8731,11 @@ do_command:
 
 	cmp byte [rbp-23], 1
 	je command_finish
+
+
+	cmp byte [rbp-128], 1
+	je stc_do_command
+
 
 	cmp byte [rbp-100], 0
 	je .normal_exec_com
@@ -8239,7 +8892,7 @@ do_command:
 	movzx rdi, byte [rbp-13]
 	call its_number
 	cmp rax, 1
-	je push_my
+	je push_int_my
 
 	;if *word == "
 	mov rax, qword [rbp-21]
@@ -8362,14 +9015,6 @@ do_command:
 	call strcmp
 	cmp rax, 1
 	je two_dup_my
-
-	; //
-	mov rax, qword [rbp-21]
-	movzx rsi, byte [rbp-13]
-	strcmp_const "//"
-	call strcmp
-	cmp rax, 1
-	je comment_my
 
 	; mem
 	mov rax, qword [rbp-21]
@@ -8793,6 +9438,9 @@ new_line:
 	cmp dword [rbp-12], 0
 	je exit
 
+	;set // off
+	mov byte [rbp-129], 0
+
 	;src++
 	;src_len--
 	inc qword [rbp-8]
@@ -8917,7 +9565,22 @@ its_single_quotes:
 
 	jmp go_for_line
 
+;src++ src-len-- go_for_line
+ssg:
+	inc qword [rbp-8]
+	dec dword [rbp-12]
+	
+	jmp go_for_line
+
 go_for_line_loop:
+	;if its \n
+	mov rax, qword [rbp-8]
+	cmp byte [rax], 10
+	je new_line
+
+	cmp byte [rbp-129], 1
+	je ssg
+
 	;if word == //
 	mov rax, qword [rbp-21]
 	movzx rsi, byte [rbp-13]
@@ -8951,10 +9614,6 @@ go_for_line_loop:
 	;if its '
 	cmp byte [rax], 39
 	je its_single_quotes
-
-	;if its \n
-	cmp byte [rax], 10
-	je new_line
 
 	;if its space
 	cmp byte [rax], 32
@@ -9002,6 +9661,12 @@ go_for_line:
 	cmp byte [rbp-13], 0
 	jne do_command
 
+	cmp byte [rbp-128], 1
+	je .finish_stc
+
+	jmp exit
+
+.finish_stc:
 	;check stc stack len > 0
 	mov rax, r15
 	mov rdi, stc_my_end
@@ -9009,8 +9674,36 @@ go_for_line:
 	cmp rax, 0
 	ja .error_above
 
-	;exit
-	jmp exit
+	mov rax, qword [rbp-127]
+	mov edi, dword [rbp-157]
+
+	mov qword [rbp-8], rax                                        ;SRC
+	mov dword [rbp-12], edi                                       ;SRC-LEN
+	mov byte [rbp-13], 0                                          ;WORD-LEN
+	mov qword [rbp-21], rax                                       ;WORD
+	mov byte [rbp-22], 0                                          ;MACRO
+	mov byte [rbp-23], 0                                          ;/*
+
+	mov rax, qword [rbp-47]
+	mov rdi, 1
+	cmp byte [rbp-100], 0
+	cmove rax, rdi
+	mov qword [rbp-47], rax
+
+	mov byte [rbp-48], 0                                          ;"
+	mov qword [rbp-56], mn_end                                    ;MACRO
+	mov qword [rbp-64], mnl_end                                   ;MACRO
+	mov qword [rbp-72], mi_end                                    ;MACRO
+	mov qword [rbp-80], mb_end                                    ;MACRO
+	mov qword [rbp-88], mbl_end                                   ;MACRO
+	mov byte [rbp-89], 0                                          ;MACRO
+	mov qword [rbp-97], mil_end                                   ;MACRO
+	mov byte [rbp-98], 0                                          ;INCLUDE
+	mov byte [rbp-99], 0                                          ;'
+	mov byte [rbp-128], 0                                         ;stc
+	mov byte [rbp-129], 0                                         ;//
+
+	jmp go_for_line
 
 .error_above:
 	strcmp_const "unhandled data on the stack"

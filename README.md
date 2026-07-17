@@ -64,6 +64,7 @@ For simulate:
 | `-o` | Say, i need only `.o` from compilation, and set the output o name |
 | `-I` | Add additionals folders for `include` |
 | `-r` | Run the programm after compilation |
+| `-stc-off` | Off the static type checking |
 
 ---
 
