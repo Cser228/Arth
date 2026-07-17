@@ -471,6 +471,7 @@ _start:
 
 	;(stc_my, who?)
 	;0 = if
+	;1 = else
 	mov qword [rbp-153], stc_save_end
 
 	;save src_len on all time
@@ -7970,11 +7971,27 @@ stc_if_my:
 	jmp exit_f
 
 stc_else_my:
-	strcmp_const "stc_else_my: not implemented"
-	mov rsi, rdi
-	call write
+	;stack_snapshots.pop()
+	mov rax, qword [rbp-153]
+	inc rax
+	mov rdi, qword [rax]
+	push rdi
+	add rax, 8
+	mov qword [rbp-153], rax
 
-	jmp exit_f
+	;stack_snapshots.push((stack, 0))
+	mov rax, qword [rbp-153]
+	sub rax, 8
+	mov qword [rax], r15
+	sub rax, 1
+	mov byte [rax], 1
+	mov qword [rbp-153], rax
+
+	;stack = stack_snapshot
+	pop rax
+	mov r15, rax
+
+	jmp command_finish
 
 stc_end_macro:
 	;pop if_stack
@@ -8008,7 +8025,7 @@ stc_end_my:
 	cmp rax, if_stack_end
 	je .stc_end_my_normi
 
-	;if last if stack value == 5 or 6
+	;if last if stack value == 5 or 6 MACRO
 	mov rax, qword [rbp-31]
 
 	cmp qword [rax], 5
@@ -8029,22 +8046,36 @@ stc_end_my:
 	cmp byte [rax], 0
 	je .stc_if
 
-	jmp .stc_continue
+	;if stc_save was be called by else
+	mov rax, qword [rbp-153]
+	cmp byte [rax], 1
+	je .stc_else
+
+	strcmp_const "stc_end_my: unreachable"
+	mov rsi, rdi
+	call write
+
+	jmp exit_f
 
 .stc_if:
 	mov rax, qword [rbp-153]
 	inc rax
 	cmp qword [rax], r15
-	jne .error_stcsave
+	jne .error_stcsave_if
 
-	jmp .stc_continue
-
-.stc_continue:
 	add qword [rbp-153], 9
-
 	jmp command_finish
 
-.error_stcsave:
+.stc_else:
+	mov rax, qword [rbp-153]
+	inc rax
+	cmp qword [rax], r15
+	jne .error_stcsave_else
+
+	add qword [rbp-153], 9
+	jmp command_finish
+
+.error_stcsave_if:
 	;file_name: 1 line 5 character: ...
 	mov rax, qword [rbp-165]
 	call strlen_C
@@ -8073,6 +8104,44 @@ stc_end_my:
 	call write
 
 	strcmp_const " character: else-less if block is not allowed to alter the types of the arguments on the data stack"
+	mov rsi, rdi
+	call write
+
+	mov rsi, newline_character
+	mov rdx, 1
+	call write
+
+	jmp exit_f
+
+.error_stcsave_else:
+	;file_name: 1 line 5 character: ...
+	mov rax, qword [rbp-165]
+	call strlen_C
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+	strcmp_const ": "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " line "
+	mov rsi, rdi
+	call write
+
+	call count_lines_and_characters
+	mov rax, rdi
+	call int_to_string
+	mov rsi, rax
+	mov rdx, rdi
+	call write
+
+	strcmp_const " character: both branches of the if-block must produce the same types of the arguments on the data stack"
 	mov rsi, rdi
 	call write
 
